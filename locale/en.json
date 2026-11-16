@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Reunion · chat import and persona",
+    "description": "Import a DeepSeek history export into the workspace and distill it into a portable persona plus relationship memory you can keep talking to. Import writes companions/<slug>/: SOUL.md (voice rules with verbatim anchors), a budgeted MEMORY.md, the full transcript.jsonl archive, and meta.json with source hashes. Everything runs locally: no telemetry, no scraping, and no outbound network beyond the session's own model calls. Imports each conversation as its own persona (mode=separate, matching the website threads) or merges chosen conversations into one persona (merge needs explicit sessions or all=true).A persona applies only to the session that called reunion_load; other sessions and subagents are unaffected, and reunion_unload detaches it.Usage: ask the assistant to \"import my DeepSeek export\". reunion_inspect shows the file structure, reunion_import normalizes, reunion_digest returns the material, reunion_compose previews and validates, reunion_commit writes, reunion_load loads the persona into this session (mode=skill also writes a workspace skill), and reunion_delete removes the directory and the skill. A conversation already deleted server-side cannot be recovered. Uninstalling the plugin never deletes companions/.",
+    "detail": "docs/DETAIL.md"
+  }
+}

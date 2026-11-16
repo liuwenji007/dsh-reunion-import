@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36" role="img" aria-label="Reunion">
+  <defs>
+    <mask id="reunion-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36">
+      <rect width="36" height="36" fill="#fff"/>
+      <g fill="#000" stroke="#000" stroke-width="2.4" stroke-linejoin="round">
+        <rect x="16.5" y="12.5" width="16.5" height="12.5" rx="4.5"/>
+        <path d="M28.2 21.8 L30.6 29.5 L23 24.4 Z"/>
+      </g>
+    </mask>
+  </defs>
+  <g mask="url(#reunion-gap)">
+    <rect x="3" y="7" width="17" height="12.5" rx="4.5" fill="#1F7A73"/>
+    <path d="M7.6 16.8 L5.8 24 L12.8 18.6 Z" fill="#1F7A73"/>
+  </g>
+  <rect x="16.5" y="12.5" width="16.5" height="12.5" rx="4.5" fill="#E4A63C"/>
+  <path d="M28.2 21.8 L30.6 29.5 L23 24.4 Z" fill="#E4A63C"/>
+</svg>

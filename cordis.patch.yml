@@ -1,0 +1,6 @@
+# Reunion (重逢) — host-only bundle. Every tunable lives in this row's config;
+# omitted keys fall back to the defaults documented in docs/DETAIL.md.
+- insert:
+    - id: reunion-import
+      name: dsh-reunion-import
+      config: {}

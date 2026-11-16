@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="300" viewBox="0 0 640 300" role="img" aria-label="A chat export file becomes a voice and a memory, then a conversation continues">
+  <!-- Left: the export archive -->
+  <g fill="none" stroke="#7C8BA1" stroke-width="3" stroke-linejoin="round">
+    <rect x="40" y="88" width="150" height="124" rx="14"/>
+    <path d="M40 112 H190"/>
+  </g>
+  <g fill="#7C8BA1" opacity="0.55">
+    <rect x="58" y="100" width="34" height="5" rx="2.5"/>
+    <rect x="62" y="132" width="106" height="8" rx="4"/>
+    <rect x="62" y="154" width="82" height="8" rx="4"/>
+    <rect x="62" y="176" width="96" height="8" rx="4"/>
+    <rect x="62" y="198" width="54" height="6" rx="3"/>
+  </g>
+
+  <!-- Arrow to the distilled pair -->
+  <path d="M204 150 H240" fill="none" stroke="#7C8BA1" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 10"/>
+  <path d="M238 143 L250 150 L238 157 Z" fill="#7C8BA1"/>
+
+  <!-- Middle top: voice -->
+  <rect x="266" y="76" width="150" height="68" rx="14" fill="none" stroke="#1F7A73" stroke-width="3"/>
+  <g fill="#1F7A73">
+    <rect x="290" y="104" width="6" height="12" rx="3"/>
+    <rect x="303" y="98" width="6" height="24" rx="3"/>
+    <rect x="316" y="90" width="6" height="40" rx="3"/>
+    <rect x="329" y="98" width="6" height="24" rx="3"/>
+    <rect x="342" y="104" width="6" height="12" rx="3"/>
+  </g>
+
+  <!-- Middle bottom: memory -->
+  <rect x="266" y="158" width="150" height="68" rx="14" fill="none" stroke="#E4A63C" stroke-width="3"/>
+  <g fill="none" stroke="#E4A63C" stroke-width="3">
+    <circle cx="306" cy="192" r="10"/>
+    <circle cx="322" cy="192" r="10"/>
+  </g>
+  <circle cx="351" cy="192" r="4" fill="#E4A63C"/>
+
+  <!-- Arrow to the conversation -->
+  <path d="M424 150 H460" fill="none" stroke="#7C8BA1" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 10"/>
+  <path d="M458 143 L470 150 L458 157 Z" fill="#7C8BA1"/>
+
+  <!-- Right: the conversation continues -->
+  <rect x="486" y="74" width="110" height="100" rx="22" fill="#E4A63C"/>
+  <path d="M508 168 L500 198 L530 168 Z" fill="#E4A63C"/>
+  <path d="M541 142 C 523 128 518 114 528 106 C 535 101 540 105 541 109 C 542 105 547 101 554 106 C 564 114 559 128 541 142 Z"
+        fill="#FFFFFF"/>
+</svg>

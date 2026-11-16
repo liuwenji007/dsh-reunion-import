@@ -1,0 +1,56 @@
+{
+  "name": "dsh-reunion-import",
+  "version": "0.1.0",
+  "description": "Import a DeepSeek chat export, distill a portable persona and relationship memory, then keep talking inside DeepSeek Harness.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "dsh-plugins",
+    "chat-export",
+    "persona",
+    "memory",
+    "companion",
+    "重逢",
+    "伴侣对话导入"
+  ],
+  "engines": {
+    "node": ">=22",
+    "dsh": ">=0.2.0-0 <0.3.0-0"
+  },
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "dsh-reunion": "./bin/reunion.mjs"
+  },
+  "files": [
+    "index.js",
+    "lib",
+    "bin",
+    "locale",
+    "docs",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check index.js && node --check bin/reunion.mjs"
+  }
+}
