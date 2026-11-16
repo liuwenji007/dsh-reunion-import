@@ -1,8 +1,29 @@
-# Reunion (重逢)
+# Reunion (重逢) — light continue and persona
 
-Import a DeepSeek chat export, distill the persona and the relationship memory
-out of it, and keep talking inside DeepSeek Harness — with the archive, not a
-summary, still on your disk.
+**Not a sidebar session importer.** For full chat bubbles use DeepSeek Chat Import
+(or similar). Reunion distills a low-context continuation pack and/or a portable
+persona + relationship memory — archive on your disk, not locked in one session.
+
+## Pick the right tool: session import vs Reunion
+
+When the official app says inactive long chats cannot continue, history is usually
+still there — you just cannot append. Getting into DSH / dsh-go does **not** require
+Reunion. Prefer a session-import plugin when you want the full thread as bubbles:
+
+| You want | Use | You get |
+| --- | --- | --- |
+| Full history in the sidebar, continue like the original chat | DSH DeepSeek Chat Import (or a community session importer) | Each website conversation → a resumable DSH Session |
+| Low context cost; pick up the topic with some voice | Reunion `thread` | A ~3.5k-char `THREAD.md` pack injected into the current session |
+| A portable persona (voice + relationship memory) | Reunion `merge` / `separate` | `SOUL.md` + `MEMORY.md` + on-disk archive |
+
+Reunion is **not** a second “move chats into the sidebar” importer. It distills and
+continues lightly. Use session import for full bubbles; use Reunion for budget and persona.
+
+## Today: light continuation with Reunion (when you chose that path)
+
+Use `mode: "thread"` (share link or one conversation id): it writes a compact
+`THREAD.md` (facts + voice anchors + recent turns, ~3.5k chars) and
+`reunion_load` injects it. No compose/commit. For full bubbles, use session import above.
 
 Reunion is a Host-only DSH bundle. It adds no chat panel and no UI; it adds ten
 tools and one optional per-agent system-prompt section.
@@ -32,7 +53,7 @@ persona onto all of them: `inspect` and `read` let you confirm a thread,
 
 | Shape | `mode` | Writes | Use it for |
 | --- | --- | --- | --- |
-| Continue a thread | `thread` | `transcript.jsonl` + `THREAD.md` (factual brief: topic, decisions, open questions, recent turns) | A long thread you want to keep working on, no character needed. |
+| Continue a thread | `thread` | `transcript.jsonl` + `THREAD.md` (facts + voice anchors + recent turns; ~3.5k chars by default) | A long thread you want to keep working on, without the persona pipeline. |
 | One character, several threads | `merge` | `SOUL.md` + `MEMORY.md` + archive | The same AI character spread across conversations. |
 | Mirror the website | `separate` | One directory per conversation | You want each thread kept apart, each loadable on its own. |
 
@@ -266,7 +287,7 @@ Set keys in the bundle's row config (or the profile patch). Defaults:
 | `maxMessages` | `300000` | Transcript size ceiling. |
 | `maxSearchChars` | 16 M | Transcript characters indexed for anchor and anti-verbatim checks. |
 | `maxInspectSessions` | `1000` | Conversations `inspect` reads before reporting partial totals. |
-| `threadBriefChars` | `6000` | Character budget of `THREAD.md` (and the loaded thread section). |
+| `threadBriefChars` | `3500` | Character budget of `THREAD.md` (and the loaded thread section). |
 | `verbatimWindow` | `24` | Window used to detect recapping in SOUL prose. |
 | `previewChars` | `160` | Message preview length in inspect output. |
 | `reportMaxChars` | `12000` | Inspect report budget. |

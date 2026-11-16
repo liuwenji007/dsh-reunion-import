@@ -1,7 +1,7 @@
 {
   "name": "dsh-reunion-import",
-  "version": "0.1.1",
-  "description": "Import a DeepSeek chat export, distill a portable persona and relationship memory, then keep talking inside DeepSeek Harness.",
+  "version": "0.1.2",
+  "description": "Not a session importer. Light continuation (THREAD brief ~3.5k chars) plus portable persona/memory for DeepSeek exports and share links inside DSH.",
   "type": "module",
   "license": "MIT",
   "keywords": [

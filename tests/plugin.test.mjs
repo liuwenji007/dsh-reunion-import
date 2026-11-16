@@ -216,6 +216,29 @@ test('the tool sequence imports, previews, commits, loads, lists, and deletes', 
   }
 })
 
+test('a single selected session defaults to thread without an explicit mode', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'reunion-thread-default-'))
+  try {
+    const exportFile = join(root, 'export.zip')
+    await writeFile(exportFile, buildExportZip({ conversations: [sampleConversation()] }))
+    const host = hostStub(root)
+    apply(host.ctx, { locale: 'zh' })
+    const tool = toolName => host.tools.find(item => item.name === toolName)
+    const run = (toolName, args) => tool(toolName).execute(args, execution([]))
+
+    const imported = await run('reunion_import', {
+      path: exportFile,
+      sessions: ['c1'],
+      name: '默认线程',
+    })
+    assert.match(imported.text, /线程导入/u)
+    assert.match(imported.text, /THREAD\.md/u)
+    await assert.rejects(readFile(join(root, 'companions', '默认线程', 'SOUL.md'), 'utf8'))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('a thread imports, loads a continuation brief, and unloads without a persona', async () => {
   const root = await mkdtemp(join(tmpdir(), 'reunion-thread-plugin-'))
   try {

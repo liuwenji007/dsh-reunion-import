@@ -151,8 +151,8 @@ export function apply(ctx, rawConfig) {
     `## Reunion thread: ${content.displayName}`,
     '',
     content.locale === 'zh'
-      ? '你正在继续用户的一段长对话。下面是这段对话的事实摘要：它在解决什么、已经决定了什么、还卡在哪里、最近几轮原话。不要复述摘要，直接从下一步接着聊；摘要里没写的事就说不确定，不要编。'
-      : 'You are continuing a long conversation the user had. The brief below records what it was solving, what was decided, what is still open, and the last turns. Do not recap it; pick up the next step. If the brief does not cover something, say it is unknown instead of inventing it.',
+      ? '你正在继续用户的一段长对话。下面是续写包：在解决什么、已决定什么、还卡在哪、口吻原句、最近几轮。直接从下一步接着聊；口吻对齐「口吻参考」里的原句；不要复述摘要；没写的事就说不确定，不要编。'
+      : 'You are continuing a long conversation. The pack below has the goal, decisions, open items, voice anchors, and recent turns. Pick up the next step in the anchored voice; do not recap the brief; if something is missing, say it is unknown instead of inventing it.',
     '',
     content.brief,
   ].join('\n')
@@ -235,23 +235,23 @@ export function apply(ctx, rawConfig) {
 
   register({
     name: 'reunion_import',
-    description: 'Import conversations from an export or a DeepSeek public share link. mode "merge" (default) merges listed conversation ids into one persona; mode "separate" imports each conversation as its own persona; mode "thread" imports exactly one conversation (or a share link) as a continuation brief with no persona. Share links contact chat.deepseek.com. Repeated imports of the same content change nothing. Never modifies the export file.',
+    description: 'NOT a full-history session importer (use DeepSeek Chat Import for sidebar bubbles). Reunion: mode "thread" = low-context continuation pack (~3.5k chars, no persona)—DEFAULT for share links and when exactly one conversation id is selected; mode "merge" = one portable persona (requires name); mode "separate" = one persona per conversation. Prefer thread when the user wants to keep talking after a locked DeepSeek chat. Share links contact chat.deepseek.com. Never modifies the export. After import, call reunion_load.',
     parameters: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Export path, or a DeepSeek public share URL / share id (prefer mode=thread).' },
-        name: { type: 'string', description: 'Persona display name for merge mode (required there); with one selected conversation in separate mode it overrides the title.' },
+        path: { type: 'string', description: 'Export path, or a DeepSeek public share URL / share id (defaults to thread).' },
+        name: { type: 'string', description: 'Required for merge (persona display name). Optional thread/separate title override.' },
         slug: { type: 'string', description: 'Optional directory slug: lowercase letters, digits, dot, dash, underscore.' },
         sessions: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Conversation ids from reunion_inspect. Merge mode needs them unless all is true; separate mode uses them as the selection (omit for every conversation).',
+          description: 'Conversation ids from reunion_inspect. One id → default mode thread. Merge needs ids unless all is true.',
         },
         all: { type: 'boolean', description: 'Merge every conversation into one persona. Only pass true when the user explicitly asked for that.' },
         mode: {
           type: 'string',
           enum: ['merge', 'separate', 'thread'],
-          description: 'merge (default) builds one persona; separate imports each conversation as its own persona; thread imports one conversation or a share link as a continuation brief (no persona).',
+          description: 'Omit to auto-pick: thread for shares or a single session id; otherwise merge. Pass merge/separate only for persona work.',
         },
       },
       required: ['path'],
@@ -272,9 +272,9 @@ export function apply(ctx, rawConfig) {
         if (info === null) throw new Error(`not found: ${resolved}`)
       }
       const locale = localeOf(displayName || path)
-      const mode = share
-        ? (args?.mode === 'merge' || args?.mode === 'separate' ? args.mode : 'thread')
-        : (args?.mode === 'separate' || args?.mode === 'thread' ? args.mode : 'merge')
+      const explicitMode = args?.mode === 'merge' || args?.mode === 'separate' || args?.mode === 'thread' ? args.mode : undefined
+      const mode = explicitMode
+        ?? (share || (Array.isArray(sessions) && sessions.length === 1) ? 'thread' : 'merge')
       if (share && mode !== 'thread') {
         throw new Error('DeepSeek share links are a single conversation; use mode "thread" (default for shares).')
       }
@@ -534,7 +534,7 @@ export function apply(ctx, rawConfig) {
 
   register({
     name: 'reunion_load',
-    description: 'Load a persona into this session only: a system-prompt section with its SOUL and MEMORY (never the transcript). Other sessions, subagents, and new sessions are unaffected. mode=skill also writes a workspace skill for later sessions. Use it once the user is ready to keep talking; reunion_unload removes it again.',
+    description: 'Load a thread brief or persona into this session only (system-prompt section; never the full transcript). For locked-chat continuation: reunion_import (thread) then reunion_load, then the user speaks the next line. Other sessions/subagents are unaffected. mode=skill also writes a workspace skill. reunion_unload removes the section.',
     parameters: {
       type: 'object',
       properties: {

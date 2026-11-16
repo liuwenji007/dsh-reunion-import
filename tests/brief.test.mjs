@@ -30,7 +30,7 @@ function threadMessages() {
   ]
 }
 
-test('the brief records the topic, decisions, open questions, and recent turns', () => {
+test('the brief records the topic, decisions, open questions, voice, and recent turns', () => {
   const brief = buildThreadBrief({
     title: '论文开题',
     locale: 'zh',
@@ -43,13 +43,16 @@ test('the brief records the topic, decisions, open questions, and recent turns',
   assert.match(brief.text, /先判断换方向是资源问题还是判断问题/u)
   assert.match(brief.text, /还没解决的问题/u)
   assert.match(brief.text, /导师不想单独见我怎么办/u)
+  assert.match(brief.text, /口吻参考（原句）/u)
   assert.match(brief.text, /最近对话（逐字）/u)
   assert.match(brief.text, /用户: 如果他还是不回呢/u)
   assert.equal(brief.stats.messages, 5)
   assert.equal(brief.stats.users, 3)
   assert.equal(brief.stats.decisions >= 1, true)
   assert.equal(brief.stats.open >= 1, true)
-  assert.equal(brief.stats.recent, 5)
+  assert.equal(brief.stats.voice >= 1, true)
+  assert.ok(brief.stats.recent <= 4)
+  assert.ok(brief.stats.recent >= 1)
 })
 
 test('the brief stays inside its character budget', () => {
@@ -61,7 +64,7 @@ test('the brief stays inside its character budget', () => {
   const brief = buildThreadBrief({ title: '长线程', locale: 'zh', maxChars: 1500, messages: long })
   assert.ok(brief.text.length <= 1500, `${brief.text.length}`)
   assert.equal(brief.stats.truncated, true)
-  assert.ok(brief.stats.recent < 12)
+  assert.ok(brief.stats.recent <= 4)
 })
 
 test('the brief can be built from a transcript file', async () => {

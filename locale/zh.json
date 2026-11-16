@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "重逢 · 对话导入与人格还原",
-    "description": "把 DeepSeek 导出的历史对话（或公开分享链接）导入工作区，蒸馏成可携带的「人格 + 记忆」，新会话装载后接着聊。导入写到 companions/<slug>/：SOUL.md、MEMORY.md、transcript.jsonl、meta.json。本地导出默认不上网；传入 chat.deepseek.com/share/… 时会拉取公开快照。无遥测。支持 thread（单会话/分享链接续聊）、merge、separate。用法：对助手说「导入我的 DeepSeek 导出」或「用这条分享链接 thread 导入」——inspect → import →（merge 才 digest/compose/commit）→ load。不做多模态；分享失效或已删会话无法导入。卸载插件不会删除 companions/。",
+    "title": "重逢 · 轻量续写与人格还原",
+    "description": "不是把聊天搬进侧栏的 Session 导入器。要完整历史气泡请用 DeepSeek Chat Import 等；重逢做两件事：（1）thread 轻量续写——事实+口吻原句+最近几轮，约 3.5k 字进上下文；（2）merge/separate 蒸馏可移植人格（SOUL+MEMORY）。分享链接或只选一个会话时默认 thread。本地导出默认不上网；share 链接会拉公开快照。无遥测。用法：续聊说「thread 导入并 load」；人格再说 digest/compose/commit。卸载不删 companions/。",
     "detail": "docs/DETAIL.zh.md"
   }
 }

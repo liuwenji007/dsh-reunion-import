@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "Reunion · chat import and persona",
-    "description": "Import a DeepSeek history export—or a public share link—into the workspace and distill a portable persona plus relationship memory. Writes companions/<slug>/: SOUL.md, MEMORY.md, transcript.jsonl, meta.json. Local exports stay offline; a chat.deepseek.com/share/… link fetches the public snapshot. No telemetry. Shapes: thread (continue one conversation or share, no persona), merge, separate. Usage: ask to \"import my DeepSeek export\" or \"thread-import this share link\" — inspect → import → (digest/compose/commit only for merge) → load. Not multimodal; expired or deleted shares cannot be imported. Uninstalling never deletes companions/.",
+    "title": "Reunion · light continue and persona",
+    "description": "Not a sidebar session importer—use DeepSeek Chat Import (or similar) for full chat bubbles. Reunion does two jobs: (1) thread = low-context continuation (~3.5k chars: facts, voice anchors, recent turns); (2) merge/separate = portable persona (SOUL+MEMORY). Defaults to thread for share links and when exactly one conversation is selected. Local exports stay offline; share URLs fetch the public snapshot. No telemetry. Continue with thread+load; persona needs digest/compose/commit. Uninstall never deletes companions/.",
     "detail": "docs/DETAIL.md"
   }
 }
