@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "重逢 · 轻量续写与人格还原",
-    "description": "不是把聊天搬进侧栏的 Session 导入器。要完整历史气泡请用 DeepSeek Chat Import 等；重逢做两件事：（1）thread 轻量续写——事实+口吻原句+最近几轮，约 3.5k 字进上下文；（2）merge/separate 蒸馏可移植人格（SOUL+MEMORY）。分享链接或只选一个会话时默认 thread。本地导出默认不上网；share 链接会拉公开快照。无遥测。用法：续聊说「thread 导入并 load」；人格再说 digest/compose/commit。卸载不删 companions/。",
+    "description": "不是 Session 搬家。完整气泡用 DeepSeek Chat Import；重逢做轻量续写（thread≈3.5k 字背景，相对十万字级全文常少一个数量级）与可移植人格（merge/separate）。API 账单还看缓存命中，勿承诺固定省多少钱。分享/单会话默认 thread。本地导出不上网；share 拉公开快照。无遥测。续聊：import→load；人格再 digest/compose/commit。卸载不删 companions/。",
     "detail": "docs/DETAIL.zh.md"
   }
 }

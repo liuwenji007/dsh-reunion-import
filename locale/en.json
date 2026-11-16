@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Reunion · light continue and persona",
-    "description": "Not a sidebar session importer—use DeepSeek Chat Import (or similar) for full chat bubbles. Reunion does two jobs: (1) thread = low-context continuation (~3.5k chars: facts, voice anchors, recent turns); (2) merge/separate = portable persona (SOUL+MEMORY). Defaults to thread for share links and when exactly one conversation is selected. Local exports stay offline; share URLs fetch the public snapshot. No telemetry. Continue with thread+load; persona needs digest/compose/commit. Uninstall never deletes companions/.",
+    "description": "Not a session mover—use DeepSeek Chat Import for full bubbles. Reunion: light continue (thread ~3.5k chars of background, often an order of magnitude less than a 100k-char thread) plus portable persona (merge/separate). API bills also depend on cache hits—don’t promise a fixed dollar saving. Share/single-session default to thread. Local exports offline; share URLs fetch public snapshots. No telemetry. Continue: import→load; persona: digest/compose/commit. Uninstall never deletes companions/.",
     "detail": "docs/DETAIL.md"
   }
 }

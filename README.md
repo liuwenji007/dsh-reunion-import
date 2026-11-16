@@ -19,6 +19,24 @@ Reunion. Prefer a session-import plugin when you want the full thread as bubbles
 Reunion is **not** a second “move chats into the sidebar” importer. It distills and
 continues lightly. Use session import for full bubbles; use Reunion for budget and persona.
 
+## Context size vs bill (say this carefully)
+
+`thread` injects about **3.5k characters** (~2k+ tokens) of continuation pack. A full
+session import keeps carrying the original thread. The gap is the **background
+resent every turn**:
+
+| Original thread | Full background (ballpark) | Reunion background | Order of savings |
+| --- | --- | --- | --- |
+| ~30k Chinese chars | ~20k tokens | ~3k | smaller order-of-magnitude |
+| ~100k | ~60k | ~3k | ~**20×** less background |
+| ~300k | ~190k | ~3k | up to ~**60×** less background |
+
+On the official API, **token volume drops a lot; yuan savings depend on cache hits,
+Flash vs Pro, and thinking mode.** With off-peak + stable prefix cache hits, an
+evening’s **price** gap is often cents to about a yuan; cache misses / Pro / very
+long threads make yuan gaps larger. Promise “less full-text in context,” not a
+fixed dollar saving. See [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing/).
+
 ## Today: light continuation with Reunion (when you chose that path)
 
 Use `mode: "thread"` (share link or one conversation id): it writes a compact
