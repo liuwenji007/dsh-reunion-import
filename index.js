@@ -19,6 +19,7 @@ import {
   buildMemory, buildSoul, clamp, renderCommit, renderDelete, renderDigest, renderImport,
   renderInspect, renderImportSeparate, renderImportThread, renderList, renderLoad, renderPreview, renderRead, renderUnload,
 } from './lib/render.mjs'
+import { isShareRef } from './lib/share.mjs'
 import { resolveInside } from './lib/slug.mjs'
 import {
   deleteCompanion, deleteSkill, listCompanions, readCompanion, skillName, statSafe, writePersona, writeSkill,
@@ -162,11 +163,11 @@ export function apply(ctx, rawConfig) {
 
   register({
     name: 'reunion_inspect',
-    description: 'Inspect a DeepSeek chat export before importing it: the file structure, each conversation id/title/message count, field meanings, first and last message previews, and unrecognized fields. The ids are what reunion_import uses to select or separate threads. Accepts a ZIP export, an extracted export directory, one conversation JSON, or JSON Lines. Writes nothing.',
+    description: 'Inspect a DeepSeek chat export or a public share link before importing it: structure, conversation id/title/message count, field meanings, previews, and unrecognized fields. Accepts a ZIP export, an extracted export directory, one conversation JSON, JSON Lines, or a chat.deepseek.com/share/… link (network). Writes nothing.',
     parameters: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Absolute path, or a path relative to the workspace.' },
+        path: { type: 'string', description: 'Absolute/relative path, or a DeepSeek public share URL / share id.' },
         query: { type: 'string', description: 'Only list conversations whose title or id contains this text.' },
         sort: {
           type: 'string',
@@ -181,9 +182,11 @@ export function apply(ctx, rawConfig) {
     async execute(args, exec) {
       const path = String(args?.path ?? '').trim()
       if (path.length === 0) throw new Error('path is required')
-      const resolved = resolveInside(workspaceOf(exec), path)
-      const info = await statSafe(resolved)
-      if (info === null) throw new Error(`not found: ${resolved}`)
+      const resolved = isShareRef(path) ? path : resolveInside(workspaceOf(exec), path)
+      if (!isShareRef(path)) {
+        const info = await statSafe(resolved)
+        if (info === null) throw new Error(`not found: ${resolved}`)
+      }
       const report = await inspectSource({
         path: resolved,
         config,
@@ -232,11 +235,11 @@ export function apply(ctx, rawConfig) {
 
   register({
     name: 'reunion_import',
-    description: 'Import conversations from an export. mode "merge" (default) merges the conversation ids you list into one persona; it refuses when an export holds several conversations and none were named, so unrelated threads are never merged silently. mode "separate" imports each conversation as its own persona, mirroring the website threads. mode "thread" imports exactly one conversation as a continuation brief (no persona) for long threads that just need to keep going. Repeated imports of the same file change nothing, and messages are deduplicated by content and timestamp. Never modifies the export file.',
+    description: 'Import conversations from an export or a DeepSeek public share link. mode "merge" (default) merges listed conversation ids into one persona; mode "separate" imports each conversation as its own persona; mode "thread" imports exactly one conversation (or a share link) as a continuation brief with no persona. Share links contact chat.deepseek.com. Repeated imports of the same content change nothing. Never modifies the export file.',
     parameters: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Export file or extracted directory; relative paths resolve against the workspace.' },
+        path: { type: 'string', description: 'Export path, or a DeepSeek public share URL / share id (prefer mode=thread).' },
         name: { type: 'string', description: 'Persona display name for merge mode (required there); with one selected conversation in separate mode it overrides the title.' },
         slug: { type: 'string', description: 'Optional directory slug: lowercase letters, digits, dot, dash, underscore.' },
         sessions: {
@@ -248,7 +251,7 @@ export function apply(ctx, rawConfig) {
         mode: {
           type: 'string',
           enum: ['merge', 'separate', 'thread'],
-          description: 'merge (default) builds one persona; separate imports each conversation as its own persona; thread imports one conversation as a continuation brief (no persona).',
+          description: 'merge (default) builds one persona; separate imports each conversation as its own persona; thread imports one conversation or a share link as a continuation brief (no persona).',
         },
       },
       required: ['path'],
@@ -262,11 +265,19 @@ export function apply(ctx, rawConfig) {
       const rawSessions = Array.isArray(args?.sessions) ? args.sessions.map(value => String(value).trim()).filter(value => value.length > 0) : undefined
       const sessions = rawSessions === undefined || rawSessions.includes('all') || rawSessions.includes('*') ? undefined : rawSessions
       const slug = typeof args?.slug === 'string' && args.slug.trim() !== '' ? args.slug.trim() : undefined
-      const resolved = resolveInside(workspaceOf(exec), path)
-      const info = await statSafe(resolved)
-      if (info === null) throw new Error(`not found: ${resolved}`)
+      const share = isShareRef(path)
+      const resolved = share ? path : resolveInside(workspaceOf(exec), path)
+      if (!share) {
+        const info = await statSafe(resolved)
+        if (info === null) throw new Error(`not found: ${resolved}`)
+      }
       const locale = localeOf(displayName || path)
-      const mode = args?.mode === 'separate' || args?.mode === 'thread' ? args.mode : 'merge'
+      const mode = share
+        ? (args?.mode === 'merge' || args?.mode === 'separate' ? args.mode : 'thread')
+        : (args?.mode === 'separate' || args?.mode === 'thread' ? args.mode : 'merge')
+      if (share && mode !== 'thread') {
+        throw new Error('DeepSeek share links are a single conversation; use mode "thread" (default for shares).')
+      }
       if (mode === 'thread') {
         const result = await importThread({
           path: resolved,

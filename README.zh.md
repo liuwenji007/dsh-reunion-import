@@ -14,8 +14,9 @@ Harness 里接着聊下去——存档留在你自己的磁盘上，而不是某
   摘要，不抽人格）、`merge`（多个会话 → 一个人格）、`separate`（每个会话一个人格）。
 - **接着聊。** `reunion_load` 只把摘要或 `SOUL.md` + `MEMORY.md` 注入当前会话；
   `mode: "skill"` 还会写一个工作区技能，之后的任何会话都能装载。
-- **本地、可删。** 全是纯文本文件；没有遥测、不抓页面、不逆向接口；除了你本来就在用的模型
-  调用之外没有出站网络。删人格就删干净；卸载插件不会删数据。
+- **本地、可删。** 全是纯文本文件；没有遥测、不抓页面、不逆向接口。平常只读本地导出；
+  **唯一例外**：当你传入 DeepSeek 公开分享链接时，会请求 `chat.deepseek.com` 拉快照。
+  删人格就删干净；卸载插件不会删数据。
 
 ## 导入前先选形态
 
@@ -42,14 +43,20 @@ DSH 的插件管理器从命令行安装。安装后插件页会出现 **重逢 
 仓库里有一份完全虚构的演示导出 [`examples/demo-export`](examples/demo-export)（一段 8 条消息的陪伴对话、
 一段 10 条消息的论文选题对话）；CLI 一节的演示命令可以直接拿它跑，不必碰你的真实数据。
 
-1. **拿到导出。** DeepSeek：**设置 → 数据管理 → 导出所有历史对话**。得到一个压缩包，
-   里面是 `manifest.json`、`chat_session_index.json`、`chat_sessions/<id>.json`。
+1. **拿到导出，或一条分享链接。**
+   - 全量：DeepSeek **设置 → 数据管理 → 导出所有历史对话**（zip）。
+   - 手机更省事：在 DeepSeek App/网页对**单个会话**点「分享」，复制
+     `https://chat.deepseek.com/share/…` 链接（不要用图片分享）。
 2. **先看清楚。** 对助手说：
 
    > 帮我看看这个导出里有什么：`/path/to/export.zip`
 
+   或：
+
+   > 帮我看看这个分享：`https://chat.deepseek.com/share/xxxx`
+
    它会调用 `reunion_inspect`：不写任何文件，输出结构、会话数与消息数、每个字段的含义、
-   首尾消息预览，以及所有没认出来的字段。
+   首尾消息预览，以及所有没认出来的字段。分享链接会联网拉取公开快照。
 3. **决定「线程 → 人格」怎么对应。**
 
    导出里每个会话本来就是独立的，和官网列表一致。可以保留这种形态，也可以有意归并：
@@ -59,6 +66,8 @@ DSH 的插件管理器从命令行安装。安装后插件页会出现 **重逢 
    > 把会话 c1、c2 导入成「小满」这个人格。（`mode: "merge"`，默认）
 
    > 继续会话 c1，从上次停下的地方接着聊。（`mode: "thread"`）
+
+   > 用这条分享链接 thread 导入，接着聊。（分享链接默认就是 `thread`）
 
    thread 模式写完 `THREAD.md` 就结束：没有人格预览、不需要确认；`reunion_load` 直接把
    摘要装进会话。
@@ -89,6 +98,8 @@ DSH 的插件管理器从命令行安装。安装后插件页会出现 **重逢 
 node bin/reunion.mjs inspect examples/demo-export
 node bin/reunion.mjs import examples/demo-export --mode thread \
   --sessions demo-thread --name 论文选题
+node bin/reunion.mjs inspect https://chat.deepseek.com/share/<share_id>
+node bin/reunion.mjs import https://chat.deepseek.com/share/<share_id> --mode thread
 node bin/reunion.mjs inspect /path/to/export.zip --query 论文选题 --sort span
 node bin/reunion.mjs read /path/to/export.zip --session c1 --offset 0 --limit 20
 node bin/reunion.mjs import /path/to/export.zip --name 小满 \

@@ -19,9 +19,10 @@ tools and one optional per-agent system-prompt section.
 - **Keep talking.** `reunion_load` injects only the brief or `SOUL.md` +
   `MEMORY.md` into the current session, or writes a workspace skill a later
   session can invoke.
-- **Local and removable.** Plain files, no telemetry, no scraping, no outbound
-  network beyond the model calls you already make. Deleting the persona deletes
-  everything; uninstalling the plugin deletes nothing.
+- **Local and removable.** Plain files, no telemetry, no scraping. Ordinary
+  imports stay on-disk; the **one exception** is a DeepSeek public share URL,
+  which fetches `chat.deepseek.com`. Deleting the persona deletes everything;
+  uninstalling the plugin deletes nothing.
 
 ## Three shapes before you import
 
@@ -55,20 +56,27 @@ A fully fictional demo export ships in [`examples/demo-export`](examples/demo-ex
 demo commands at the end of the CLI section run against it without touching your
 own data.
 
-1. **Get the export.** In DeepSeek, **Settings → Data management → Export all
-   conversations**. You get one archive (a ZIP with `manifest.json`,
-   `chat_session_index.json`, and `chat_sessions/<id>.json`).
+1. **Get an export, or one share link.**
+   - Full history: DeepSeek **Settings → Data management → Export all
+     conversations** (ZIP with `manifest.json`, `chat_session_index.json`,
+     `chat_sessions/<id>.json`).
+   - Phone-friendly: in the DeepSeek App/web, **Share** one conversation and
+     copy `https://chat.deepseek.com/share/…` (links only; image shares are not
+     importable).
 2. **Look first.** Ask the assistant:
 
    > Inspect this export and tell me what is inside: `/path/to/export.zip`
 
+   or:
+
+   > Inspect this share: `https://chat.deepseek.com/share/xxxx`
+
    It calls `reunion_inspect`, which writes nothing and reports the structure,
    conversation and message counts, what each field means, first/last message
-   previews, and every field it did not recognize. Conversations are ordered by
-   message count; `query` filters titles and `sort` can order by `span` or
-   `recent`, which matters once an export holds hundreds of threads.
-   `reunion_read` then opens one conversation in pages without importing it, so
-   you can confirm the thread or decide an ordinary Q&A needs no import at all.
+   previews, and every field it did not recognize. Share links fetch the public
+   snapshot over the network. Conversations are ordered by message count;
+   `query` filters titles and `sort` can order by `span` or `recent`.
+   `reunion_read` then opens one conversation in pages without importing it.
 3. **Choose how threads map to personas.**
 
    The export contains every conversation as its own thread, exactly like the
@@ -80,6 +88,9 @@ own data.
    > the default)
 
    > Continue conversation `c1` where it stopped. (`mode: "thread"`)
+
+   > Thread-import this share link and keep talking. (share links default to
+   > `thread`)
 
    Thread mode writes `THREAD.md` and stops there: no persona preview, no
    confirmation step; `reunion_load` puts the brief into a session.
@@ -118,6 +129,8 @@ completely (with `confirm: true`).
 node bin/reunion.mjs inspect examples/demo-export
 node bin/reunion.mjs import examples/demo-export --mode thread \
   --sessions demo-thread --name 论文选题
+node bin/reunion.mjs inspect https://chat.deepseek.com/share/<share_id>
+node bin/reunion.mjs import https://chat.deepseek.com/share/<share_id> --mode thread
 node bin/reunion.mjs inspect /path/to/export.zip --query 论文选题 --sort span
 node bin/reunion.mjs read /path/to/export.zip --session c1 --offset 0 --limit 20
 node bin/reunion.mjs import /path/to/export.zip --name 小满 \

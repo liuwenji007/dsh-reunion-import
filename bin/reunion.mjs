@@ -15,6 +15,7 @@ import { resolveLocale, t } from '../lib/i18n.mjs'
 import { importIntoCompanion, importSeparate, importThread, readExportSession } from '../lib/import.mjs'
 import { inspectSource } from '../lib/probe.mjs'
 import { renderDelete, renderImport, renderImportSeparate, renderImportThread, renderInspect, renderList, renderRead } from '../lib/render.mjs'
+import { isShareRef } from '../lib/share.mjs'
 import { resolveInside } from '../lib/slug.mjs'
 import { deleteCompanion, deleteSkill, listCompanions, readCompanion } from '../lib/store.mjs'
 
@@ -73,9 +74,9 @@ export async function run(argv) {
 
   if (command === 'inspect') {
     const target = positionals[0]
-    if (target === undefined) return { code: 1, stdout: '', stderr: 'inspect needs a file or directory' }
+    if (target === undefined) return { code: 1, stdout: '', stderr: 'inspect needs a file, directory, or DeepSeek share URL' }
     const report = await inspectSource({
-      path: resolveInside(workspace, target),
+      path: isShareRef(target) ? target : resolveInside(workspace, target),
       config,
       query: typeof options.query === 'string' ? options.query : undefined,
       sort: options.sort === 'span' || options.sort === 'recent' ? options.sort : 'messages',
@@ -114,15 +115,22 @@ export async function run(argv) {
   if (command === 'import') {
     const target = positionals[0]
     const name = typeof options.name === 'string' ? options.name : undefined
-    if (target === undefined) return { code: 1, stdout: '', stderr: 'import needs a file or directory' }
+    if (target === undefined) return { code: 1, stdout: '', stderr: 'import needs a file, directory, or DeepSeek share URL' }
     const sessions = typeof options.sessions === 'string'
       ? options.sessions.split(',').map(value => value.trim()).filter(value => value.length > 0)
       : undefined
     const locale = resolveLocale({ configured: 'auto', text: name ?? target })
-    const mode = options.mode === 'separate' || options.mode === 'thread' ? options.mode : 'merge'
+    const share = isShareRef(target)
+    const sourcePath = share ? target : resolveInside(workspace, target)
+    const mode = share
+      ? (options.mode === 'merge' || options.mode === 'separate' ? options.mode : 'thread')
+      : (options.mode === 'separate' || options.mode === 'thread' ? options.mode : 'merge')
+    if (share && mode !== 'thread') {
+      return { code: 1, stdout: '', stderr: 'DeepSeek share links are a single conversation; use --mode thread' }
+    }
     if (mode === 'thread') {
       const result = await importThread({
-        path: resolveInside(workspace, target),
+        path: sourcePath,
         sessions,
         name,
         slug: typeof options.slug === 'string' ? options.slug : undefined,
@@ -141,7 +149,7 @@ export async function run(argv) {
     }
     if (mode === 'separate') {
       const result = await importSeparate({
-        path: resolveInside(workspace, target),
+        path: sourcePath,
         sessions,
         name,
         slug: typeof options.slug === 'string' ? options.slug : undefined,
@@ -160,7 +168,7 @@ export async function run(argv) {
     }
     if (name === undefined) return { code: 1, stdout: '', stderr: 'import needs --name' }
     const result = await importIntoCompanion({
-      path: resolveInside(workspace, target),
+      path: sourcePath,
       displayName: name,
       slug: typeof options.slug === 'string' ? options.slug : undefined,
       sessions,

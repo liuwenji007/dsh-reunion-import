@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "重逢 · 对话导入与人格还原",
-    "description": "把 DeepSeek 导出的历史对话导入工作区，蒸馏成可携带的「人格 + 记忆」，新会话装载后接着聊。导入写到工作区的 companions/<slug>/：SOUL.md（口吻与逐字原句）、MEMORY.md（关系记忆，默认 ≤8000 字）、transcript.jsonl（完整存档）、meta.json（来源与哈希）。全部本地处理，除会话本身的模型调用外无出站网络，无遥测。支持 thread（单会话续聊，不抽人格）、merge（多会话合并为一个人格）、separate（每会话独立）三种形态。支持按会话独立导入（mode=separate，还原官网的线程划分），也支持把多个会话归并为同一人格（merge 需显式指定 sessions 或 all=true）。人格只在调用 reunion_load 的那个会话生效，其他会话与子代理不受影响，reunion_unload 可退出。用法：对助手说「导入我的 DeepSeek 导出」——reunion_inspect 先看结构，reunion_import 归一化，reunion_digest 取素材，reunion_compose 预览确认，reunion_commit 落盘，reunion_load 在本会话装载（mode=skill 可写成工作区技能），reunion_delete 连目录与技能一起删。没有抓取页面、不碰 DeepSeek 侧数据、不做多模态；已被服务端清除的对话无法救回。卸载插件不会删除 companions/。",
+    "description": "把 DeepSeek 导出的历史对话（或公开分享链接）导入工作区，蒸馏成可携带的「人格 + 记忆」，新会话装载后接着聊。导入写到 companions/<slug>/：SOUL.md、MEMORY.md、transcript.jsonl、meta.json。本地导出默认不上网；传入 chat.deepseek.com/share/… 时会拉取公开快照。无遥测。支持 thread（单会话/分享链接续聊）、merge、separate。用法：对助手说「导入我的 DeepSeek 导出」或「用这条分享链接 thread 导入」——inspect → import →（merge 才 digest/compose/commit）→ load。不做多模态；分享失效或已删会话无法导入。卸载插件不会删除 companions/。",
     "detail": "docs/DETAIL.zh.md"
   }
 }
