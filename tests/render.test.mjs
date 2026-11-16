@@ -2,7 +2,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildMemory, buildSoul, renderInspect, renderLoad, renderPreview } from '../lib/render.mjs'
+import { buildMemory, buildSoul, renderInspect, renderList, renderLoad, renderPreview } from '../lib/render.mjs'
 import { resolveConfig } from '../lib/config.mjs'
 
 const config = resolveConfig({}).config
@@ -56,6 +56,33 @@ test('the inspect report is clamped and localized', () => {
   assert.match(text, /缺少 chat_session_index/u)
   const clamped = renderInspect(report, 'en', 100)
   assert.ok(clamped.length <= 100)
+})
+
+test('list renders imported-but-uncommitted personas instead of marking them broken', () => {
+  const text = renderList([
+    {
+      slug: 'jindao',
+      dir: '/tmp/companions/jindao',
+      kind: 'incomplete',
+      complete: false,
+      meta: {
+        displayName: '仅导入',
+        userNickname: '',
+        messages: 8,
+        timeRange: { from: 0, to: 1 },
+      },
+    },
+    {
+      slug: 'broken',
+      dir: '/tmp/companions/broken',
+      kind: 'incomplete',
+      complete: false,
+      meta: null,
+    },
+  ], 'zh')
+  assert.match(text, /仅导入/u)
+  assert.doesNotMatch(text, /jindao — 目录不完整/u)
+  assert.match(text, /broken — 目录不完整/u)
 })
 
 test('a preview lists errors instead of a draft id', () => {

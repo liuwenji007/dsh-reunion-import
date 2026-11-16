@@ -1,0 +1,18 @@
+{
+  "id": "demo-thread",
+  "title": "论文选题讨论",
+  "current_message_id": 10,
+  "inserted_at": "2025-10-08T09:00:00.000Z",
+  "messages": [
+    { "id": 1, "parent_id": null, "role": "USER", "status": "FINISHED", "inserted_at": "2025-10-08T09:00:00.000Z", "fragments": [{ "type": "REQUEST", "content": "我在写传播学硕士论文，想研究短视频里的怀旧内容，但题目太大，不知道怎么收。" }] },
+    { "id": 2, "parent_id": 1, "role": "ASSISTANT", "status": "FINISHED", "inserted_at": "2025-10-08T09:01:00.000Z", "fragments": [{ "type": "RESPONSE", "content": "先说结论：不要研究“短视频里的怀旧”，要研究一个具体的怀旧机制在某个平台、某类人群上怎么运作。建议把题目收成三步：先限定平台和人群，再选一个可观察的行为，最后确定你要解释的机制。下一步是列出三个候选题目，每个都写清楚数据从哪里来。\n\n### 第一步：限定范围\n平台只选一个，人群只选一类。\n\n### 第二步：选可观察的行为\n比如转发、二创、评论里的“小时候”叙事。\n\n### 第三步：写数据来源\n访谈、评论文本、还是内容样本。" }] },
+    { "id": 3, "parent_id": 2, "role": "USER", "status": "FINISHED", "inserted_at": "2025-10-12T14:20:00.000Z", "fragments": [{ "type": "REQUEST", "content": "导师说我的题目没有理论贡献，只像内容分析。我该怎么回？" }] },
+    { "id": 4, "parent_id": 3, "role": "ASSISTANT", "status": "FINISHED", "inserted_at": "2025-10-12T14:22:00.000Z", "fragments": [{ "type": "RESPONSE", "content": "他不是在否定你，是在问“你解释了什么”。你可以把理论贡献写成一句话：本研究用某个概念解释某类怀旧内容为什么在某个平台上更容易被转发。然后准备两个反例，说明没有这个机制时会发生什么。计划是本周内把这句话发给导师确认。" }] },
+    { "id": 5, "parent_id": 4, "role": "USER", "status": "FINISHED", "inserted_at": "2025-10-15T10:00:00.000Z", "fragments": [{ "type": "REQUEST", "content": "我列了三个题目，但每个都觉得很普通。要不要换一个更热的题？" }] },
+    { "id": 6, "parent_id": 5, "role": "ASSISTANT", "status": "FINISHED", "inserted_at": "2025-10-15T10:02:00.000Z", "fragments": [{ "type": "RESPONSE", "content": "先别追热点。硕士论文的选题要满足两个条件：你三个月内拿得到数据，且你能说出它与已有研究的差别。把三个题目按这两个条件打分，低于六分的直接删掉。下一步是把剩下的那个写成 300 字的研究问题。" }] },
+    { "id": 7, "parent_id": 6, "role": "USER", "status": "FINISHED", "inserted_at": "2025-10-18T16:40:00.000Z", "fragments": [{ "type": "REQUEST", "content": "导师又建议我换到他自己的项目里，我不太想换，怎么谈？" }] },
+    { "id": 8, "parent_id": 7, "role": "ASSISTANT", "status": "FINISHED", "inserted_at": "2025-10-18T16:42:00.000Z", "fragments": [{ "type": "RESPONSE", "content": "可以谈，但要先给他一个低成本方案：保留你现在的题目，同时用他的项目提供一部分案例数据。这样他得到支持，你保住问题。你可以说：“老师，我想保留这个题目，但数据可以结合您项目里的访谈，您看这样是否可行？”下一步是准备一页纸，写清楚两边的收益。" }] },
+    { "id": 9, "parent_id": 8, "role": "USER", "status": "FINISHED", "inserted_at": "2025-10-21T20:00:00.000Z", "fragments": [{ "type": "REQUEST", "content": "他同意我先试试，但说十一月要看初稿。我该先写哪一部分？" }] },
+    { "id": 10, "parent_id": 9, "role": "ASSISTANT", "status": "FINISHED", "inserted_at": "2025-10-21T20:02:00.000Z", "fragments": [{ "type": "RESPONSE", "content": "先写文献综述里的“机制”部分，不要先写引言。因为初稿评审最关心你能不能把机制说清楚。计划是两周：第一周写机制和两个案例，第二周补方法。下次我们可以把初稿结构拆成小节，逐节过。" }] }
+  ]
+}

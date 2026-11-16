@@ -13,17 +13,18 @@ import { join, relative } from 'node:path'
 import { resolveConfig } from './lib/config.mjs'
 import { buildDigest } from './lib/digest.mjs'
 import { resolveLocale, t } from './lib/i18n.mjs'
-import { importIntoCompanion, importSeparate } from './lib/import.mjs'
+import { importIntoCompanion, importSeparate, importThread, readExportSession } from './lib/import.mjs'
 import { inspectSource } from './lib/probe.mjs'
 import {
   buildMemory, buildSoul, clamp, renderCommit, renderDelete, renderDigest, renderImport,
-  renderInspect, renderImportSeparate, renderList, renderLoad, renderPreview, renderUnload,
+  renderInspect, renderImportSeparate, renderImportThread, renderList, renderLoad, renderPreview, renderRead, renderUnload,
 } from './lib/render.mjs'
 import { resolveInside } from './lib/slug.mjs'
 import {
   deleteCompanion, deleteSkill, listCompanions, readCompanion, skillName, statSafe, writePersona, writeSkill,
 } from './lib/store.mjs'
 import { iterateTranscript } from './lib/transcript.mjs'
+import { buildThreadBriefFromTranscript } from './lib/brief.mjs'
 import { validateDraft } from './lib/validate.mjs'
 
 /** Plugin name shown in diagnostics. */
@@ -145,6 +146,16 @@ export function apply(ctx, rawConfig) {
     content.memory,
   ].join('\n')
 
+  const threadSection = content => [
+    `## Reunion thread: ${content.displayName}`,
+    '',
+    content.locale === 'zh'
+      ? '你正在继续用户的一段长对话。下面是这段对话的事实摘要：它在解决什么、已经决定了什么、还卡在哪里、最近几轮原话。不要复述摘要，直接从下一步接着聊；摘要里没写的事就说不确定，不要编。'
+      : 'You are continuing a long conversation the user had. The brief below records what it was solving, what was decided, what is still open, and the last turns. Do not recap it; pick up the next step. If the brief does not cover something, say it is unknown instead of inventing it.',
+    '',
+    content.brief,
+  ].join('\n')
+
   const register = definition => {
     ctx.effect(() => ctx.tools.register(definition))
   }
@@ -156,6 +167,12 @@ export function apply(ctx, rawConfig) {
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Absolute path, or a path relative to the workspace.' },
+        query: { type: 'string', description: 'Only list conversations whose title or id contains this text.' },
+        sort: {
+          type: 'string',
+          enum: ['messages', 'span', 'recent'],
+          description: 'Conversation order: most messages (default), longest time span, or most recent activity.',
+        },
       },
       required: ['path'],
       additionalProperties: false,
@@ -167,15 +184,55 @@ export function apply(ctx, rawConfig) {
       const resolved = resolveInside(workspaceOf(exec), path)
       const info = await statSafe(resolved)
       if (info === null) throw new Error(`not found: ${resolved}`)
-      const report = await inspectSource({ path: resolved, config, signal: exec.signal })
+      const report = await inspectSource({
+        path: resolved,
+        config,
+        signal: exec.signal,
+        query: typeof args?.query === 'string' ? args.query : undefined,
+        sort: args?.sort === 'span' || args?.sort === 'recent' ? args.sort : 'messages',
+      })
       const locale = localeOf(`${report.name}${report.previews?.first?.map(item => item.text).join('') ?? ''}`)
       return { text: renderInspect(report, locale, config.reportMaxChars) }
     },
   })
 
   register({
+    name: 'reunion_read',
+    description: 'Read one conversation from an export in pages, without importing it. Use it to confirm a thread before choosing merge/thread/separate, or to inspect an ordinary Q&A conversation that should not be imported at all.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Export file or extracted directory; relative paths resolve against the workspace.' },
+        session: { type: 'string', description: 'Conversation id from reunion_inspect.' },
+        offset: { type: 'integer', description: 'First message index, default 0.' },
+        limit: { type: 'integer', description: 'Messages to return, 1-100, default 20.' },
+      },
+      required: ['path', 'session'],
+      additionalProperties: false,
+    },
+    output: OUTPUT,
+    async execute(args, exec) {
+      const path = String(args?.path ?? '').trim()
+      const session = String(args?.session ?? '').trim()
+      if (path.length === 0) throw new Error('path is required')
+      if (session.length === 0) throw new Error('session is required')
+      const resolved = resolveInside(workspaceOf(exec), path)
+      const result = await readExportSession({
+        path: resolved,
+        session,
+        offset: typeof args?.offset === 'number' ? args.offset : 0,
+        limit: typeof args?.limit === 'number' ? args.limit : 20,
+        config,
+        signal: exec.signal,
+      })
+      const locale = localeOf(result.title ?? result.session)
+      return { text: renderRead(result, locale, config.reportMaxChars) }
+    },
+  })
+
+  register({
     name: 'reunion_import',
-    description: 'Import conversations from an export. mode "merge" (default) merges the conversation ids you list into one persona; it refuses when an export holds several conversations and none were named, so unrelated threads are never merged silently. mode "separate" imports each conversation as its own persona, mirroring the website threads. Repeated imports of the same file change nothing, and messages are deduplicated by content and timestamp. Never modifies the export file.',
+    description: 'Import conversations from an export. mode "merge" (default) merges the conversation ids you list into one persona; it refuses when an export holds several conversations and none were named, so unrelated threads are never merged silently. mode "separate" imports each conversation as its own persona, mirroring the website threads. mode "thread" imports exactly one conversation as a continuation brief (no persona) for long threads that just need to keep going. Repeated imports of the same file change nothing, and messages are deduplicated by content and timestamp. Never modifies the export file.',
     parameters: {
       type: 'object',
       properties: {
@@ -188,7 +245,11 @@ export function apply(ctx, rawConfig) {
           description: 'Conversation ids from reunion_inspect. Merge mode needs them unless all is true; separate mode uses them as the selection (omit for every conversation).',
         },
         all: { type: 'boolean', description: 'Merge every conversation into one persona. Only pass true when the user explicitly asked for that.' },
-        mode: { type: 'string', enum: ['merge', 'separate'], description: 'merge (default) builds one persona; separate restores one persona per conversation thread.' },
+        mode: {
+          type: 'string',
+          enum: ['merge', 'separate', 'thread'],
+          description: 'merge (default) builds one persona; separate imports each conversation as its own persona; thread imports one conversation as a continuation brief (no persona).',
+        },
       },
       required: ['path'],
       additionalProperties: false,
@@ -205,7 +266,23 @@ export function apply(ctx, rawConfig) {
       const info = await statSafe(resolved)
       if (info === null) throw new Error(`not found: ${resolved}`)
       const locale = localeOf(displayName || path)
-      const mode = args?.mode === 'separate' ? 'separate' : 'merge'
+      const mode = args?.mode === 'separate' || args?.mode === 'thread' ? args.mode : 'merge'
+      if (mode === 'thread') {
+        const result = await importThread({
+          path: resolved,
+          sessions,
+          name: displayName || undefined,
+          slug,
+          companionsRoot: companionsRootOf(exec),
+          config,
+          locale,
+          signal: exec.signal,
+        })
+        if (!result.unchanged) {
+          result.files = result.files.map(file => ({ ...file, path: displayPath(exec, join(result.dir, file.path)) }))
+        }
+        return { text: renderImportThread(result, locale) }
+      }
       if (mode === 'separate') {
         const result = await importSeparate({
           path: resolved,
@@ -220,7 +297,7 @@ export function apply(ctx, rawConfig) {
         return {
           text: renderImportSeparate({
             ...result,
-            personas: result.personas.map(item => ({ ...item, dir: displayPath(exec, item.dir) })),
+            personas: result.personas.map(item => (item.dir === undefined ? item : { ...item, dir: displayPath(exec, item.dir) })),
           }, locale),
         }
       }
@@ -264,6 +341,7 @@ export function apply(ctx, rawConfig) {
       const root = companionsRootOf(exec)
       const companion = await readCompanion(root, slug)
       if (companion === null) throw new Error(t(localeOf(slug), 'commit.missingTranscript'))
+      if (companion.kind === 'thread') return { text: t(localeOf(slug), 'thread.notPersona') }
       const transcriptSha = companion.meta?.transcript?.sha256 ?? 'unknown'
       const cached = digests.get(slug)
       let digest = cached !== undefined && cached.sha === transcriptSha ? cached.digest : undefined
@@ -318,6 +396,7 @@ export function apply(ctx, rawConfig) {
       const root = companionsRootOf(exec)
       const companion = await readCompanion(root, slug)
       if (companion === null) throw new Error(t(localeOf(slug), 'commit.missingTranscript'))
+      if (companion.kind === 'thread') return { text: t(localeOf(slug), 'thread.notPersona') }
       const meta = companion.meta ?? {}
       const draft = {
         displayName: typeof args?.displayName === 'string' && args.displayName.trim() !== '' ? args.displayName.trim() : (meta.displayName ?? slug),
@@ -466,11 +545,24 @@ export function apply(ctx, rawConfig) {
       const mode = args?.mode === 'skill' || args?.mode === 'both' ? args.mode : 'session'
       const root = companionsRootOf(exec)
       const companion = await readCompanion(root, slug)
-      if (companion === null || companion.soul === null || companion.memory === null) {
+      if (companion === null) return { text: t(localeOf(slug), 'load.notFound') }
+      const meta = companion.meta ?? {}
+      const isThread = companion.kind === 'thread'
+      if (!isThread && (companion.soul === null || companion.memory === null)) {
         return { text: t(localeOf(slug), 'load.notFound') }
       }
-      const meta = companion.meta ?? {}
-      const locale = meta.locale === 'en' || meta.locale === 'zh' ? meta.locale : localeOf(`${companion.soul}${companion.memory}`)
+      const locale = meta.locale === 'en' || meta.locale === 'zh'
+        ? meta.locale
+        : localeOf(`${companion.soul ?? companion.thread ?? ''}${companion.memory ?? ''}`)
+      let threadBrief = ''
+      if (isThread) {
+        threadBrief = companion.thread ?? (await buildThreadBriefFromTranscript({
+          transcriptPath: companion.transcriptPath,
+          title: meta.displayName ?? slug,
+          locale,
+          maxChars: config.threadBriefChars,
+        })).text
+      }
       const agent = exec.agent
       let sessionId
       let switchedFrom
@@ -484,12 +576,14 @@ export function apply(ctx, rawConfig) {
             switchedFrom = previous.slug
             unloadPersona(agent.id)
           }
-          const content = personaSection({
-            displayName: meta.displayName ?? slug,
-            soul: companion.soul.trim(),
-            memory: companion.memory.trim(),
-            locale,
-          })
+          const content = isThread
+            ? threadSection({ displayName: meta.displayName ?? slug, brief: threadBrief.trim(), locale })
+            : personaSection({
+              displayName: meta.displayName ?? slug,
+              soul: companion.soul.trim(),
+              memory: companion.memory.trim(),
+              locale,
+            })
           const fiber = agent.ctx.inject(['systemPrompt'], scope => {
             scope.systemPrompt.section({
               name: `reunion-persona-${slug}`,
@@ -509,21 +603,24 @@ export function apply(ctx, rawConfig) {
       let skillWritten
       if (mode === 'skill' || mode === 'both') {
         skillWritten = await writeSkill(skillsRootOf(exec), slug, {
-          soul: companion.soul,
-          memory: companion.memory,
+          soul: isThread ? threadBrief : companion.soul,
+          memory: isThread ? '' : companion.memory,
           displayName: meta.displayName ?? slug,
           locale,
+          thread: isThread,
         })
       }
       const opening = typeof args?.opening === 'string' && args.opening.trim() !== ''
         ? args.opening.trim()
-        : (locale === 'zh' ? '我回来啦。' : "I'm back.")
+        : t(locale, isThread ? 'load.threadOpening' : 'load.openingDefault')
       return {
         text: renderLoad({
           slug,
+          kind: isThread ? 'thread' : 'persona',
           displayName: meta.displayName ?? slug,
           userNickname: meta.userNickname || '—',
           messages: meta.messages ?? 0,
+          briefChars: isThread ? (meta.brief?.chars ?? threadBrief.length) : undefined,
           sessionId,
           skillPath: skillWritten === undefined ? undefined : displayPath(exec, skillWritten),
           skillName: skillName(slug),

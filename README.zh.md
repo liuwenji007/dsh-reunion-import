@@ -3,17 +3,32 @@
 把 DeepSeek 导出的历史对话导入工作区，蒸馏出「人格 + 关系记忆」，然后在 DeepSeek
 Harness 里接着聊下去——存档留在你自己的磁盘上，而不是某个会话的附属品。
 
-重逢是一个 Host-only 的 DSH bundle：不加聊天面板、不改界面，只加九个工具，以及一个可选的
-「按会话注入人格段落」。
+重逢是一个 Host-only 的 DSH bundle：不加聊天面板、不改界面，只加十个工具，以及一个可选的
+「按会话注入人格/线程段落」。
 
 - **上下文带走。** 导出文件只在本地读取，归一化成 `companions/<slug>/transcript.jsonl`；
   原始导出文件永远不会被修改。
 - **蒸馏，不是灌原文。** `SOUL.md`（口吻规则 + 5–10 条逐字原句）与 `MEMORY.md`（关系记忆，
   有硬预算）来自一份「可测量的证据」摘要，而不是把 transcript 塞进提示词。
-- **接着聊。** `reunion_load` 只把 `SOUL.md` + `MEMORY.md` 注入当前会话；`mode: "skill"`
-  还会写一个工作区技能，之后的任何会话都能装载。
+- **三种形态，不是一种。** 大多数导出都是一次性问答。重逢提供 `thread`（单会话 → 续聊
+  摘要，不抽人格）、`merge`（多个会话 → 一个人格）、`separate`（每个会话一个人格）。
+- **接着聊。** `reunion_load` 只把摘要或 `SOUL.md` + `MEMORY.md` 注入当前会话；
+  `mode: "skill"` 还会写一个工作区技能，之后的任何会话都能装载。
 - **本地、可删。** 全是纯文本文件；没有遥测、不抓页面、不逆向接口；除了你本来就在用的模型
   调用之外没有出站网络。删人格就删干净；卸载插件不会删数据。
+
+## 导入前先选形态
+
+大多数导出一大半是一次性问题。重逢不会强行给所有会话抽人格：`inspect` 和 `read`
+先确认，`thread` 只续聊，只有 `merge` 才做人格式蒸馏。
+
+| 形态 | `mode` | 产物 | 适合 |
+| --- | --- | --- | --- |
+| 继续一个线程 | `thread` | `transcript.jsonl` + `THREAD.md`（事实摘要：在解决什么、决定了什么、还卡在哪、最近几轮） | 想把一段长对话接着聊，不需要角色 |
+| 同一人物、多个线程 | `merge` | `SOUL.md` + `MEMORY.md` + 存档 | 同一个 AI 角色分散在多个对话里 |
+| 还原官网的线程 | `separate` | 每个会话一个目录 | 每个会话各自独立、各自装载 |
+
+`thread` 是确定性的，不调用模型；`merge` 才有 digest → 预览 → 确认 → commit 的人格流程。
 
 ## 安装
 
@@ -23,6 +38,9 @@ DSH 的插件管理器从命令行安装。安装后插件页会出现 **重逢 
 需要 DSH `0.2.x`；CLI 与测试需要 Node 22+。
 
 ## 使用
+
+仓库里有一份完全虚构的演示导出 [`examples/demo-export`](examples/demo-export)（一段 8 条消息的陪伴对话、
+一段 10 条消息的论文选题对话）；CLI 一节的演示命令可以直接拿它跑，不必碰你的真实数据。
 
 1. **拿到导出。** DeepSeek：**设置 → 数据管理 → 导出所有历史对话**。得到一个压缩包，
    里面是 `manifest.json`、`chat_session_index.json`、`chat_sessions/<id>.json`。
@@ -39,6 +57,11 @@ DSH 的插件管理器从命令行安装。安装后插件页会出现 **重逢 
    > 每个会话各自导入成独立人格。（`mode: "separate"`）
 
    > 把会话 c1、c2 导入成「小满」这个人格。（`mode: "merge"`，默认）
+
+   > 继续会话 c1，从上次停下的地方接着聊。（`mode: "thread"`）
+
+   thread 模式写完 `THREAD.md` 就结束：没有人格预览、不需要确认；`reunion_load` 直接把
+   摘要装进会话。
 
    merge 模式在导出包含多个会话、又没指定 id（`sessions`）时会拒绝合并，除非显式
    `all: true`，避免把不同人物误合并。separate 模式按会话标题各自建人格；之后仍可以挑其中
@@ -63,9 +86,16 @@ DSH 的插件管理器从命令行安装。安装后插件页会出现 **重逢 
 ### 命令行（不需要模型）
 
 ```sh
-node bin/reunion.mjs inspect /path/to/export.zip          # 也可以是解压后的目录
+node bin/reunion.mjs inspect examples/demo-export
+node bin/reunion.mjs import examples/demo-export --mode thread \
+  --sessions demo-thread --name 论文选题
+node bin/reunion.mjs inspect /path/to/export.zip --query 论文选题 --sort span
+node bin/reunion.mjs read /path/to/export.zip --session c1 --offset 0 --limit 20
 node bin/reunion.mjs import /path/to/export.zip --name 小满 \
   --sessions c1,c2 --companions companions
+node bin/reunion.mjs import /path/to/export.zip --mode thread \
+  --sessions c1 --name 论文选题
+node bin/reunion.mjs import /path/to/export.zip --mode separate
 node bin/reunion.mjs list
 node bin/reunion.mjs delete 小满 --yes
 ```
@@ -88,22 +118,27 @@ node bin/reunion.mjs delete 小满 --yes
   每个会话都能在技能目录里看到一行摘要，但 SOUL/MEMORY 正文只在该技能被调用时加载。删除人格会
   一并删除技能。
 - **隔离说的是上下文，不是文件权限。** 人格文件就是普通文件；如果你明确要求，任何会话都可以读它。
-- **transcript 永远不进上下文。** 只有 `reunion_load` 之后的 SOUL.md 与 MEMORY.md 会进入会话。
+- **transcript 永远不进上下文。** 装载后的会话只看到线程摘要，或 SOUL.md + MEMORY.md；
+  而且都要先 `reunion_load`。
+- **线程的作用域也一样。** 摘要只是当前会话的提示段落；其他会话和之后的新会话需要重新装载。
 
 ## 数据位置与删除
 
 ```
 companions/<slug>/
-  SOUL.md            口吻与人格约束 + 逐字原句锚点
-  MEMORY.md          关系记忆（有预算，含低置信度分节）
+  SOUL.md            仅人格：口吻与人格约束 + 逐字原句锚点
+  MEMORY.md          仅人格：关系记忆（有预算，含低置信度分节）
+  THREAD.md          仅线程：事实性续聊摘要
   transcript.jsonl   完整存档，每行 { role, content, ts, turn }
-  meta.json          来源、SHA-256、导入时间、消息数、时间范围、预算
+  meta.json          kind（persona|thread）、来源、SHA-256、消息数、时间范围、预算
 ```
 
 - 目录可配置：`config.companionsDir`（默认 `companions`，相对会话工作目录，也可写绝对路径）。
 - 归并后线程边界仍然保留：`meta.json` 里每个来源会话都记录它在合并后的 `transcript.jsonl`
   中占用的 `turnFrom`/`turnTo` 范围，能反查某条消息原本属于哪个线程。
 - separate 模式每个会话一个目录；同一份导出重复导入会报告「已存在」，不会重复合并。
+- thread 模式的 `meta.kind` 是 `thread`：不写 SOUL/MEMORY，也不适用人格工具；
+  `reunion_digest`/`reunion_compose`/`reunion_commit` 会拒绝它，直接 `reunion_load` 即可。
 - 删除：`reunion_delete` 带 `confirm: true`，或
   `node bin/reunion.mjs delete <slug> --yes`。会删掉整个目录（四个文件）和生成的技能，并从
   所有会话卸载人格；没有别的地方引用这些数据。
@@ -133,6 +168,8 @@ companions/<slug>/
   被内容过滤撤回的问答对会整对跳过，与当时看到的对话一致。
 - **不做「复活已故者」之类引导。** 人格就是你实际聊过的那个 AI 角色。
 - **蒸馏质量受证据限制。** 存档小，原句锚点就少，低置信度项就多；预览就是让你否掉「不像」的稿子。
+- **线程摘要是确定性的。** 它逐字引用最近几轮、按句式规则抽取「决定/待办」；它是一张续聊地图，
+  不是模型写的总结。漏了什么，transcript 还在磁盘上。
 
 ## 配置
 
@@ -150,7 +187,8 @@ companions/<slug>/
 | `maxJsonBytes` | 128 MiB | 一次性解析的 JSON 上限。 |
 | `maxMessages` | `300000` | 存档消息数上限。 |
 | `maxSearchChars` | 16 M | 校验时索引的存档字符数。 |
-| `maxInspectSessions` | `500` | `inspect` 最多读多少会话，超出标注「部分」。 |
+| `maxInspectSessions` | `1000` | `inspect` 最多读多少会话，超出标注「部分」。 |
+| `threadBriefChars` | `6000` | `THREAD.md`（及装载的摘要段落）字符预算。 |
 | `verbatimWindow` | `24` | 检测 SOUL 复述原文的窗口长度。 |
 | `previewChars` | `160` | inspect 里单条预览长度。 |
 | `reportMaxChars` | `12000` | inspect 报告上限。 |
@@ -169,7 +207,7 @@ node --test
 ## 目录
 
 ```
-index.js              Host 插件：九个工具 + 按会话的人格段落
+index.js              Host 插件：十个工具 + 按会话的人格/线程段落
 lib/config.mjs        可调参数、默认值、类型校验
 lib/i18n.mjs          中英结果文案与 locale 解析
 lib/source.mjs        输入识别，ZIP/目录/JSON/JSONL 打开

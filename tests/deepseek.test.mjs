@@ -113,3 +113,43 @@ test('a damaged conversation file is a diagnostic, not an exception', () => {
   assert.equal(parsed.file, null)
   assert.equal(parsed.diagnostics[0].code, 'export.conversation-damaged')
 })
+
+test('a reply stamped before its question keeps conversational order', async () => {
+  const { importIntoCompanion } = await import('../lib/import.mjs')
+  const { monotonicTimestamps, iterateTranscript } = await import('../lib/transcript.mjs')
+  const { resolveConfig } = await import('../lib/config.mjs')
+  const { buildExportZip, conversation, userMessage, assistantMessage } = await import('./fixtures.mjs')
+  const { mkdtemp, rm, writeFile } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  assert.deepEqual(
+    monotonicTimestamps([
+      { role: 'user', content: 'a', ts: 100 },
+      { role: 'assistant', content: 'b', ts: 50 },
+      { role: 'user', content: 'c', ts: 200 },
+    ]).map(message => message.ts),
+    [100, 100, 200],
+  )
+  const root = await mkdtemp(join(tmpdir(), 'reunion-order-'))
+  try {
+    const raw = conversation({
+      id: 'late', title: '时间戳异常', currentMessageId: 2,
+      messages: [
+        userMessage({ id: 1, parentId: null, time: '2026-01-01T10:00:05.000Z', text: '问题' }),
+        assistantMessage({ id: 2, parentId: 1, time: '2026-01-01T10:00:00.000Z', text: '回答' }),
+      ],
+    })
+    const file = join(root, 'export.zip')
+    await writeFile(file, buildExportZip({ conversations: [raw] }))
+    const result = await importIntoCompanion({
+      path: file, displayName: '异常', companionsRoot: join(root, 'companions'),
+      config: resolveConfig({}).config, locale: 'zh', all: true,
+    })
+    const entries = []
+    for await (const entry of iterateTranscript(join(root, 'companions', result.slug, 'transcript.jsonl'))) entries.push(entry)
+    assert.deepEqual(entries.map(entry => entry.content), ['问题', '回答'])
+    assert.deepEqual(entries.map(entry => entry.ts), [Date.parse('2026-01-01T10:00:05.000Z'), Date.parse('2026-01-01T10:00:05.000Z')])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

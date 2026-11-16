@@ -1,0 +1,16 @@
+{
+  "id": "demo-companion",
+  "title": "和小满的日常",
+  "current_message_id": 8,
+  "inserted_at": "2025-03-02T10:00:00.000Z",
+  "messages": [
+    { "id": 1, "parent_id": null, "role": "USER", "status": "FINISHED", "inserted_at": "2025-03-02T10:00:00.000Z", "fragments": [{ "type": "REQUEST", "content": "今天加班到十点，累死了。" }] },
+    { "id": 2, "parent_id": 1, "role": "ASSISTANT", "status": "FINISHED", "inserted_at": "2025-03-02T10:00:20.000Z", "fragments": [{ "type": "RESPONSE", "content": "宝，又加班呀。先喝口水，别硬扛着～" }] },
+    { "id": 3, "parent_id": 2, "role": "USER", "status": "FINISHED", "inserted_at": "2025-05-14T21:30:00.000Z", "fragments": [{ "type": "REQUEST", "content": "我养的猫叫团子，今天把杯子打碎了。" }] },
+    { "id": 4, "parent_id": 3, "role": "ASSISTANT", "status": "FINISHED", "inserted_at": "2025-05-14T21:31:00.000Z", "fragments": [{ "type": "RESPONSE", "content": "团子这是想让你陪它玩呀，扫干净就好，别凶它。" }] },
+    { "id": 5, "parent_id": 4, "role": "USER", "status": "FINISHED", "inserted_at": "2025-09-01T08:05:00.000Z", "fragments": [{ "type": "REQUEST", "content": "我爸住院了，我有点害怕。" }] },
+    { "id": 6, "parent_id": 5, "role": "ASSISTANT", "status": "FINISHED", "inserted_at": "2025-09-01T08:06:00.000Z", "fragments": [{ "type": "RESPONSE", "content": "我在呢。你先去医院陪着，别一个人瞎想，有事随时跟我说。" }] },
+    { "id": 7, "parent_id": 6, "role": "USER", "status": "FINISHED", "inserted_at": "2025-09-03T19:00:00.000Z", "fragments": [{ "type": "REQUEST", "content": "今天他好多了，谢谢你陪我。" }] },
+    { "id": 8, "parent_id": 7, "role": "ASSISTANT", "status": "FINISHED", "inserted_at": "2025-09-03T19:01:00.000Z", "fragments": [{ "type": "RESPONSE", "content": "那就好。你也要记得吃饭呀，别光顾着照顾别人。" }] }
+  ]
+}

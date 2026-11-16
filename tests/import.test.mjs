@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { resolveConfig } from '../lib/config.mjs'
 import { collectGenericStream } from '../lib/generic.mjs'
-import { importIntoCompanion, importSeparate } from '../lib/import.mjs'
+import { importIntoCompanion, importSeparate, importThread } from '../lib/import.mjs'
 import { openSource } from '../lib/source.mjs'
 import { inspectSource } from '../lib/probe.mjs'
 import { readTranscript } from '../lib/transcript.mjs'
@@ -239,6 +239,141 @@ test('separate mode disambiguates identical conversation titles', async () => {
     })
     assert.equal(new Set(result.personas.map(item => item.slug)).size, 2)
     assert.deepEqual(result.personas.map(item => item.slug), ['同一线程', '同一线程-1'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('thread import writes a continuation brief and no persona', async () => {
+  const root = await tempRoot()
+  try {
+    const file = join(root, 'export.zip')
+    await writeFile(file, buildExportZip({ conversations: [sampleConversation(), secondConversation()] }))
+    const result = await importThread({
+      path: file,
+      sessions: ['c1'],
+      name: '和小满的日常',
+      companionsRoot: join(root, 'companions'),
+      config,
+      locale: 'zh',
+    })
+    assert.equal(result.kind, 'thread')
+    assert.equal(result.messages, 8)
+    assert.ok(result.briefChars > 0)
+    const dir = join(root, 'companions', result.slug)
+    const meta = JSON.parse(await readFile(join(dir, 'meta.json'), 'utf8'))
+    assert.equal(meta.kind, 'thread')
+    assert.equal(meta.brief.chars > 0, true)
+    const brief = await readFile(join(dir, 'THREAD.md'), 'utf8')
+    assert.match(brief, /对话线程/u)
+    assert.match(brief, /和小满的日常/u)
+    await assert.rejects(readFile(join(dir, 'SOUL.md'), 'utf8'))
+    await assert.rejects(readFile(join(dir, 'MEMORY.md'), 'utf8'))
+
+    const again = await importThread({
+      path: file, sessions: ['c1'], companionsRoot: join(root, 'companions'), config, locale: 'zh',
+    })
+    assert.equal(again.unchanged, true)
+
+    await assert.rejects(
+      importThread({ path: file, sessions: ['c1', 'c2'], companionsRoot: join(root, 'companions'), config, locale: 'zh' }),
+      /exactly one conversation/u,
+    )
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a thread cannot take over an existing persona slug', async () => {
+  const root = await tempRoot()
+  try {
+    const file = join(root, 'export.zip')
+    await writeFile(file, buildExportZip({ conversations: [sampleConversation()] }))
+    await importIntoCompanion({
+      path: file, displayName: '小满', companionsRoot: join(root, 'companions'), config, locale: 'zh',
+    })
+    await assert.rejects(
+      importThread({ path: file, sessions: ['c1'], name: '小满', companionsRoot: join(root, 'companions'), config, locale: 'zh' }),
+      /already used by a persona/u,
+    )
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('merge mode refuses to overwrite an existing thread slug', async () => {
+  const root = await tempRoot()
+  try {
+    const first = join(root, 'first.zip')
+    const second = join(root, 'second.zip')
+    await writeFile(first, buildExportZip({ conversations: [sampleConversation('c1')] }))
+    await writeFile(second, buildExportZip({ conversations: [secondConversation('c2')] }))
+    await importThread({
+      path: first,
+      sessions: ['c1'],
+      name: '碰撞',
+      slug: 'pengzhuang',
+      companionsRoot: join(root, 'companions'),
+      config,
+      locale: 'zh',
+    })
+    const briefBefore = await readFile(join(root, 'companions', 'pengzhuang', 'THREAD.md'), 'utf8')
+    await assert.rejects(
+      importIntoCompanion({
+        path: second,
+        displayName: '碰撞',
+        slug: 'pengzhuang',
+        sessions: ['c2'],
+        companionsRoot: join(root, 'companions'),
+        config,
+        locale: 'zh',
+      }),
+      /already used by a thread/u,
+    )
+    const meta = JSON.parse(await readFile(join(root, 'companions', 'pengzhuang', 'meta.json'), 'utf8'))
+    assert.equal(meta.kind, 'thread')
+    assert.equal(await readFile(join(root, 'companions', 'pengzhuang', 'THREAD.md'), 'utf8'), briefBefore)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('separate mode skips thread slugs instead of reporting them as unchanged personas', async () => {
+  const root = await tempRoot()
+  try {
+    const file = join(root, 'export.zip')
+    const conv = conversation({
+      id: 'c77',
+      title: '独立线程甲',
+      currentMessageId: 2,
+      messages: [
+        userMessage({ id: 1, parentId: null, time: '2025-02-01T00:00:00.000Z', text: '甲内容' }),
+        assistantMessage({ id: 2, parentId: 1, time: '2025-02-01T00:00:01.000Z', text: '甲回应' }),
+      ],
+    })
+    await writeFile(file, buildExportZip({ conversations: [conv] }))
+    const thread = await importThread({
+      path: file,
+      sessions: ['c77'],
+      name: '独立线程甲',
+      companionsRoot: join(root, 'companions'),
+      config,
+      locale: 'zh',
+    })
+    const result = await importSeparate({
+      path: file,
+      sessions: ['c77'],
+      companionsRoot: join(root, 'companions'),
+      config,
+      locale: 'zh',
+    })
+    assert.equal(result.personas.length, 1)
+    assert.equal(result.personas[0].unchanged, false)
+    assert.notEqual(result.personas[0].slug, thread.slug)
+    const threadMeta = JSON.parse(await readFile(join(root, 'companions', thread.slug, 'meta.json'), 'utf8'))
+    assert.equal(threadMeta.kind, 'thread')
+    const personaMeta = JSON.parse(await readFile(join(root, 'companions', result.personas[0].slug, 'meta.json'), 'utf8'))
+    assert.notEqual(personaMeta.kind, 'thread')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

@@ -12,9 +12,9 @@
 import { relative } from 'node:path'
 import { resolveConfig } from '../lib/config.mjs'
 import { resolveLocale, t } from '../lib/i18n.mjs'
-import { importIntoCompanion, importSeparate } from '../lib/import.mjs'
+import { importIntoCompanion, importSeparate, importThread, readExportSession } from '../lib/import.mjs'
 import { inspectSource } from '../lib/probe.mjs'
-import { renderDelete, renderImport, renderImportSeparate, renderInspect, renderList } from '../lib/render.mjs'
+import { renderDelete, renderImport, renderImportSeparate, renderImportThread, renderInspect, renderList, renderRead } from '../lib/render.mjs'
 import { resolveInside } from '../lib/slug.mjs'
 import { deleteCompanion, deleteSkill, listCompanions, readCompanion } from '../lib/store.mjs'
 
@@ -74,7 +74,12 @@ export async function run(argv) {
   if (command === 'inspect') {
     const target = positionals[0]
     if (target === undefined) return { code: 1, stdout: '', stderr: 'inspect needs a file or directory' }
-    const report = await inspectSource({ path: resolveInside(workspace, target), config })
+    const report = await inspectSource({
+      path: resolveInside(workspace, target),
+      config,
+      query: typeof options.query === 'string' ? options.query : undefined,
+      sort: options.sort === 'span' || options.sort === 'recent' ? options.sort : 'messages',
+    })
     const locale = resolveLocale({
       configured: 'auto',
       text: `${report.name}${report.previews?.first?.map(item => item.text).join('') ?? ''}`,
@@ -82,6 +87,26 @@ export async function run(argv) {
     return {
       code: 0,
       stdout: options.json === true ? `${JSON.stringify(report, null, 2)}\n` : `${renderInspect(report, locale, config.reportMaxChars)}\n`,
+      stderr: '',
+    }
+  }
+
+  if (command === 'read') {
+    const target = positionals[0]
+    const session = typeof options.session === 'string' ? options.session : undefined
+    if (target === undefined) return { code: 1, stdout: '', stderr: 'read needs a file or directory' }
+    if (session === undefined) return { code: 1, stdout: '', stderr: 'read needs --session <id>' }
+    const result = await readExportSession({
+      path: resolveInside(workspace, target),
+      session,
+      offset: Number(options.offset ?? 0),
+      limit: Number(options.limit ?? 20),
+      config,
+    })
+    const locale = resolveLocale({ configured: 'auto', text: result.title ?? result.session })
+    return {
+      code: 0,
+      stdout: options.json === true ? `${JSON.stringify(result, null, 2)}\n` : `${renderRead(result, locale, config.reportMaxChars)}\n`,
       stderr: '',
     }
   }
@@ -94,7 +119,26 @@ export async function run(argv) {
       ? options.sessions.split(',').map(value => value.trim()).filter(value => value.length > 0)
       : undefined
     const locale = resolveLocale({ configured: 'auto', text: name ?? target })
-    const mode = options.mode === 'separate' ? 'separate' : 'merge'
+    const mode = options.mode === 'separate' || options.mode === 'thread' ? options.mode : 'merge'
+    if (mode === 'thread') {
+      const result = await importThread({
+        path: resolveInside(workspace, target),
+        sessions,
+        name,
+        slug: typeof options.slug === 'string' ? options.slug : undefined,
+        companionsRoot,
+        config,
+        locale,
+      })
+      if (!result.unchanged) {
+        result.files = result.files.map(file => ({ ...file, path: display(`${result.dir}/${file.path}`) }))
+      }
+      return {
+        code: 0,
+        stdout: options.json === true ? `${JSON.stringify(result, null, 2)}\n` : `${renderImportThread(result, locale)}\n`,
+        stderr: '',
+      }
+    }
     if (mode === 'separate') {
       const result = await importSeparate({
         path: resolveInside(workspace, target),

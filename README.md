@@ -4,7 +4,7 @@ Import a DeepSeek chat export, distill the persona and the relationship memory
 out of it, and keep talking inside DeepSeek Harness — with the archive, not a
 summary, still on your disk.
 
-Reunion is a Host-only DSH bundle. It adds no chat panel and no UI; it adds nine
+Reunion is a Host-only DSH bundle. It adds no chat panel and no UI; it adds ten
 tools and one optional per-agent system-prompt section.
 
 - **Bring your context with you.** The export is read locally and normalized
@@ -12,11 +12,31 @@ tools and one optional per-agent system-prompt section.
 - **Distill, don't dump.** `SOUL.md` (voice rules + 5–10 verbatim anchors) and
   `MEMORY.md` (relationship memory, hard budget) are written from a digest of
   measured evidence, never by pasting the transcript into the prompt.
-- **Keep talking.** `reunion_load` injects only `SOUL.md` + `MEMORY.md` into the
-  current session, or writes a workspace skill a later session can invoke.
+- **Three shapes, not one.** Most exports are mostly one-off Q&A. Reunion offers
+  `thread` (one conversation → a continuation brief, no persona), `merge`
+  (several conversations → one persona), and `separate` (one persona per
+  conversation).
+- **Keep talking.** `reunion_load` injects only the brief or `SOUL.md` +
+  `MEMORY.md` into the current session, or writes a workspace skill a later
+  session can invoke.
 - **Local and removable.** Plain files, no telemetry, no scraping, no outbound
   network beyond the model calls you already make. Deleting the persona deletes
   everything; uninstalling the plugin deletes nothing.
+
+## Three shapes before you import
+
+Most chat exports are mostly one-off questions. Reunion does not force a
+persona onto all of them: `inspect` and `read` let you confirm a thread,
+`thread` continues it, and only `merge` builds a persona.
+
+| Shape | `mode` | Writes | Use it for |
+| --- | --- | --- | --- |
+| Continue a thread | `thread` | `transcript.jsonl` + `THREAD.md` (factual brief: topic, decisions, open questions, recent turns) | A long thread you want to keep working on, no character needed. |
+| One character, several threads | `merge` | `SOUL.md` + `MEMORY.md` + archive | The same AI character spread across conversations. |
+| Mirror the website | `separate` | One directory per conversation | You want each thread kept apart, each loadable on its own. |
+
+`thread` is deterministic and needs no model call; `merge` adds the
+digest → preview → confirm → commit persona flow.
 
 ## Install
 
@@ -30,6 +50,11 @@ Requires a DSH release in the `0.2.x` line. Node 22+ for the CLI and tests.
 
 ## Use
 
+A fully fictional demo export ships in [`examples/demo-export`](examples/demo-export)
+(eight messages of a companionship thread and ten of a thesis-topic thread). The
+demo commands at the end of the CLI section run against it without touching your
+own data.
+
 1. **Get the export.** In DeepSeek, **Settings → Data management → Export all
    conversations**. You get one archive (a ZIP with `manifest.json`,
    `chat_session_index.json`, and `chat_sessions/<id>.json`).
@@ -39,7 +64,11 @@ Requires a DSH release in the `0.2.x` line. Node 22+ for the CLI and tests.
 
    It calls `reunion_inspect`, which writes nothing and reports the structure,
    conversation and message counts, what each field means, first/last message
-   previews, and every field it did not recognize.
+   previews, and every field it did not recognize. Conversations are ordered by
+   message count; `query` filters titles and `sort` can order by `span` or
+   `recent`, which matters once an export holds hundreds of threads.
+   `reunion_read` then opens one conversation in pages without importing it, so
+   you can confirm the thread or decide an ordinary Q&A needs no import at all.
 3. **Choose how threads map to personas.**
 
    The export contains every conversation as its own thread, exactly like the
@@ -49,6 +78,11 @@ Requires a DSH release in the `0.2.x` line. Node 22+ for the CLI and tests.
 
    > Import conversations `c1` and `c2` as the persona 小满. (`mode: "merge"`,
    > the default)
+
+   > Continue conversation `c1` where it stopped. (`mode: "thread"`)
+
+   Thread mode writes `THREAD.md` and stops there: no persona preview, no
+   confirmation step; `reunion_load` puts the brief into a session.
 
    Merge mode refuses to merge an export that holds several conversations
    unless you name the ids (`sessions`) or explicitly set `all: true`, so
@@ -81,9 +115,16 @@ completely (with `confirm: true`).
 ### CLI (no model needed)
 
 ```sh
-node bin/reunion.mjs inspect /path/to/export.zip          # or extracted dir
+node bin/reunion.mjs inspect examples/demo-export
+node bin/reunion.mjs import examples/demo-export --mode thread \
+  --sessions demo-thread --name 论文选题
+node bin/reunion.mjs inspect /path/to/export.zip --query 论文选题 --sort span
+node bin/reunion.mjs read /path/to/export.zip --session c1 --offset 0 --limit 20
 node bin/reunion.mjs import /path/to/export.zip --name 小满 \
   --sessions c1,c2 --companions companions
+node bin/reunion.mjs import /path/to/export.zip --mode thread \
+  --sessions c1 --name 论文选题
+node bin/reunion.mjs import /path/to/export.zip --mode separate
 node bin/reunion.mjs list
 node bin/reunion.mjs delete 小满 --yes
 ```
@@ -116,17 +157,20 @@ library code, so both paths produce identical files.
   is invoked. Deleting the persona deletes the skill.
 - **Isolation is about context, not filesystem permissions.** The persona files
   are ordinary files; a session could read them if you explicitly ask it to.
-- **The transcript is never in context.** Only SOUL.md and MEMORY.md enter a
-  session, and only after `reunion_load`.
+- **The transcript is never in context.** A loaded session sees only the
+  thread brief or SOUL.md + MEMORY.md, and only after `reunion_load`.
+- **Threads are scoped the same way.** A thread brief is a per-session prompt
+  section; other sessions and later sessions need `reunion_load` again.
 
 ## Files and deletion
 
 ```
 companions/<slug>/
-  SOUL.md            voice rules + verbatim anchors
-  MEMORY.md          relationship memory (budgeted, with a low-confidence section)
+  SOUL.md            persona only: voice rules + verbatim anchors
+  MEMORY.md          persona only: relationship memory (budgeted, low-confidence section)
+  THREAD.md          thread only: factual continuation brief
   transcript.jsonl   full archive: one JSON object per line { role, content, ts, turn }
-  meta.json          sources, SHA-256 hashes, import time, counts, time range, budgets
+  meta.json          kind (persona|thread), sources, SHA-256, counts, time range, budget
 ```
 
 - The directory is configurable: `config.companionsDir` (default `companions`,
@@ -137,6 +181,9 @@ companions/<slug>/
   thread of each message.
 - Separate mode writes one directory per conversation; importing the same export
   again reports those personas as unchanged instead of merging them.
+- Thread mode keeps `meta.kind: "thread"`: no SOUL/MEMORY, no persona tools.
+  `reunion_digest`/`reunion_compose`/`reunion_commit` refuse a thread; load it
+  directly.
 - Deletion: `reunion_delete` with `confirm: true`, or
   `node bin/reunion.mjs delete <slug> --yes`. It removes the directory (all four
   files) and any generated skill, and unloads the persona from every session.
@@ -185,6 +232,9 @@ companions/<slug>/
 - **Distillation quality is bounded by evidence.** Small transcripts produce
   fewer anchors and more low-confidence items; the preview exists so the user can
   reject a draft that does not sound right.
+- **The thread brief is deterministic.** It quotes recent turns and extracts
+  sentences by pattern; it is a map for continuation, not a summary written by a
+  model. If it misses something, the transcript is still on disk.
 
 ## Configuration
 
@@ -202,7 +252,8 @@ Set keys in the bundle's row config (or the profile patch). Defaults:
 | `maxJsonBytes` | 128 MiB | Largest JSON document parsed in one piece. |
 | `maxMessages` | `300000` | Transcript size ceiling. |
 | `maxSearchChars` | 16 M | Transcript characters indexed for anchor and anti-verbatim checks. |
-| `maxInspectSessions` | `500` | Conversations `inspect` reads before reporting partial totals. |
+| `maxInspectSessions` | `1000` | Conversations `inspect` reads before reporting partial totals. |
+| `threadBriefChars` | `6000` | Character budget of `THREAD.md` (and the loaded thread section). |
 | `verbatimWindow` | `24` | Window used to detect recapping in SOUL prose. |
 | `previewChars` | `160` | Message preview length in inspect output. |
 | `reportMaxChars` | `12000` | Inspect report budget. |
@@ -223,7 +274,7 @@ the anti-verbatim guard. No model is involved in any test.
 ## Layout
 
 ```
-index.js              Host plugin: nine tools + per-agent persona section
+index.js              Host plugin: ten tools + per-agent persona/thread section
 lib/config.mjs        tunables, defaults, coercion
 lib/i18n.mjs          zh/en result text, locale resolution
 lib/source.mjs        input detection, ZIP/directory/JSON/JSONL opening

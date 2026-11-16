@@ -69,17 +69,17 @@ function execution(sections = []) {
   }
 }
 
-test('the bundle registers nine tools and exposes the plugin contract', () => {
+test('the bundle registers ten tools and exposes the plugin contract', () => {
   assert.equal(name, 'dsh-reunion-import')
   assert.deepEqual(inject, ['tools', 'systemPrompt'])
   const host = hostStub(tmpdir())
   apply(host.ctx, { locale: 'zh' })
   const names = host.tools.map(tool => tool.name)
   assert.deepEqual(names, [
-    'reunion_inspect', 'reunion_import', 'reunion_digest', 'reunion_compose',
+    'reunion_inspect', 'reunion_read', 'reunion_import', 'reunion_digest', 'reunion_compose',
     'reunion_commit', 'reunion_load', 'reunion_unload', 'reunion_list', 'reunion_delete',
   ])
-  assert.equal(new Set(names).size, 9)
+  assert.equal(new Set(names).size, 10)
   for (const tool of host.tools) {
     assert.equal(typeof tool.description, 'string')
     assert.equal(tool.parameters.type, 'object')
@@ -211,6 +211,56 @@ test('the tool sequence imports, previews, commits, loads, lists, and deletes', 
     const deleted = await run('reunion_delete', { slug: '小满', confirm: true })
     assert.match(deleted.text, /已删除/u)
     await assert.rejects(readFile(join(companionDir, 'SOUL.md'), 'utf8'))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a thread imports, loads a continuation brief, and unloads without a persona', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'reunion-thread-plugin-'))
+  try {
+    const exportFile = join(root, 'export.zip')
+    await writeFile(exportFile, buildExportZip({ conversations: [sampleConversation()] }))
+    const host = hostStub(root)
+    apply(host.ctx, { locale: 'zh' })
+    const tool = toolName => host.tools.find(item => item.name === toolName)
+    const sections = []
+    const run = (toolName, args) => tool(toolName).execute(args, execution(sections))
+
+    const read = await run('reunion_read', { path: exportFile, session: 'c1', limit: 3 })
+    assert.match(read.text, /读取会话/u)
+    assert.match(read.text, /第 1–3 条/u)
+    assert.match(read.text, /宝，又加班呀/u)
+
+    const imported = await run('reunion_import', {
+      path: exportFile,
+      mode: 'thread',
+      sessions: ['c1'],
+      name: '线程测试',
+    })
+    assert.match(imported.text, /线程导入/u)
+    assert.match(imported.text, /THREAD\.md/u)
+    await assert.rejects(readFile(join(root, 'companions', '线程测试', 'SOUL.md'), 'utf8'))
+
+    const digest = await run('reunion_digest', { slug: '线程测试' })
+    assert.match(digest.text, /不是人格/u)
+
+    const loaded = await run('reunion_load', { slug: '线程测试' })
+    assert.match(loaded.text, /线程已装载/u)
+    assert.equal(sections.length, 1)
+    assert.match(sections[0].text, /Reunion thread/u)
+    assert.match(sections[0].text, /对话线程/u)
+
+    const listed = await run('reunion_list', {})
+    assert.match(listed.text, /线程测试/u)
+    assert.match(listed.text, /（线程）/u)
+
+    const unloaded = await run('reunion_unload', { slug: '线程测试' })
+    assert.match(unloaded.text, /已卸载/u)
+    assert.equal(sections.length, 0)
+
+    const deleted = await run('reunion_delete', { slug: '线程测试', confirm: true })
+    assert.match(deleted.text, /已删除/u)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
