@@ -69,17 +69,17 @@ function execution(sections = []) {
   }
 }
 
-test('the bundle registers ten tools and exposes the plugin contract', () => {
+test('the bundle registers eleven tools and exposes the plugin contract', () => {
   assert.equal(name, 'dsh-reunion-import')
   assert.deepEqual(inject, ['tools', 'systemPrompt'])
   const host = hostStub(tmpdir())
   apply(host.ctx, { locale: 'zh' })
   const names = host.tools.map(tool => tool.name)
   assert.deepEqual(names, [
-    'reunion_inspect', 'reunion_read', 'reunion_import', 'reunion_digest', 'reunion_compose',
-    'reunion_commit', 'reunion_load', 'reunion_unload', 'reunion_list', 'reunion_delete',
+    'reunion_inspect', 'reunion_read', 'reunion_import', 'reunion_continue', 'reunion_digest',
+    'reunion_compose', 'reunion_commit', 'reunion_load', 'reunion_unload', 'reunion_list', 'reunion_delete',
   ])
-  assert.equal(new Set(names).size, 10)
+  assert.equal(new Set(names).size, 11)
   for (const tool of host.tools) {
     assert.equal(typeof tool.description, 'string')
     assert.equal(tool.parameters.type, 'object')
@@ -211,6 +211,32 @@ test('the tool sequence imports, previews, commits, loads, lists, and deletes', 
     const deleted = await run('reunion_delete', { slug: '小满', confirm: true })
     assert.match(deleted.text, /已删除/u)
     await assert.rejects(readFile(join(companionDir, 'SOUL.md'), 'utf8'))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('reunion_continue imports a thread and loads it in one call', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'reunion-continue-'))
+  try {
+    const exportFile = join(root, 'export.zip')
+    await writeFile(exportFile, buildExportZip({ conversations: [sampleConversation()] }))
+    const host = hostStub(root)
+    apply(host.ctx, { locale: 'zh' })
+    const tool = toolName => host.tools.find(item => item.name === toolName)
+    const sections = []
+    const run = (toolName, args) => tool(toolName).execute(args, execution(sections))
+
+    const result = await run('reunion_continue', {
+      path: exportFile,
+      session: 'c1',
+      name: '一句话续聊',
+    })
+    assert.match(result.text, /已就绪 · 可以接着聊/u)
+    assert.match(result.text, /请用户直接说下一句/u)
+    assert.equal(sections.length, 1)
+    assert.match(sections[0].text, /Reunion thread/u)
+    assert.match(await readFile(join(root, 'companions', '一句话续聊', 'THREAD.md'), 'utf8'), /对话线程/u)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

@@ -37,13 +37,21 @@ evening’s **price** gap is often cents to about a yuan; cache misses / Pro / v
 long threads make yuan gaps larger. Promise “less full-text in context,” not a
 fixed dollar saving. See [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing/).
 
-## Today: light continuation with Reunion (when you chose that path)
+## Today: one sentence to keep chatting
 
-Use `mode: "thread"` (share link or one conversation id): it writes a compact
-`THREAD.md` (facts + voice anchors + recent turns, ~3.5k chars) and
-`reunion_load` injects it. No compose/commit. For full bubbles, use session import above.
+Tool **`reunion_continue`** = thread import + load in one call. Users can say:
 
-Reunion is a Host-only DSH bundle. It adds no chat panel and no UI; it adds ten
+> Continue this share with Reunion: `https://chat.deepseek.com/share/xxxx`
+
+or
+
+> Continue this export with Reunion: `/path/to/export.zip` (session `c1`)
+
+The assistant should call `reunion_continue` once—not import then load separately.
+If a ZIP has many conversations and no id, `reunion_inspect` first. Full bubbles
+still use session import; persona work still uses merge.
+
+Reunion is a Host-only DSH bundle. It adds no chat panel and no UI; it adds eleven
 tools and one optional per-agent system-prompt section.
 
 - **Bring your context with you.** The export is read locally and normalized
@@ -326,7 +334,7 @@ the anti-verbatim guard. No model is involved in any test.
 ## Layout
 
 ```
-index.js              Host plugin: ten tools + per-agent persona/thread section
+index.js              Host plugin: eleven tools + per-agent persona/thread section
 lib/config.mjs        tunables, defaults, coercion
 lib/i18n.mjs          zh/en result text, locale resolution
 lib/source.mjs        input detection, ZIP/directory/JSON/JSONL opening

@@ -33,25 +33,22 @@
 Pro + 超长时，差价才会明显到「几块～几十块」。不要承诺固定省多少钱——承诺「少灌全文」更稳。
 价格以 [DeepSeek 模型与价格](https://api-docs.deepseek.com/zh-cn/quick_start/pricing) 为准。
 
-## 今天：用重逢做轻量续写（当你选了右边那条）
+## 今天：一句话接着聊（普通用户路径）
 
-1. **导出或复制分享链接**  
-   - 全量：设置 → 数据管理 → 导出所有历史对话（zip）  
-   - 更快：对该会话点「分享」，复制 `https://chat.deepseek.com/share/…`
-2. **在 DSH 里对新会话说一句**（分享链接示例）：
+工具 **`reunion_continue`** = 导入 thread + 立刻装载。用户只需说一句：
 
-   > 用重逢 thread 导入这条分享并装载，接着聊：`https://chat.deepseek.com/share/xxxx`
+> 用重逢接着聊这条分享：`https://chat.deepseek.com/share/xxxx`
 
-   或（本地导出、指定会话 id）：
+或（本地导出里只有一个会话，或你已知道 id）：
 
-   > 把导出 `/path/to/export.zip` 里会话 `c1` 用 thread 导入并 load，我要接着聊。
+> 用重逢接着聊这个导出：`/path/to/export.zip`（会话 `c1`）
 
-3. **直接说下一句**（例如「我回来了，我们上次说到…」）。
+然后**直接说下一句**。助手应调用 `reunion_continue`，不要拆成 import + load。
 
-`thread` 只写 `THREAD.md`（事实 + 少量口吻原句 + 最近几轮），默认约 3.5k 字进上下文，
-不跑 compose/commit。完整气泡请走上一节的 Session 导入；人格还原（merge）有空再做。
+多会话 zip 且用户没指定 id 时，先 `reunion_inspect` 问选哪一个，再 `reunion_continue`。
+完整气泡仍走 Session 导入；人格蒸馏仍走 merge 流水线。
 
-重逢是一个 Host-only 的 DSH bundle：不加聊天面板、不改界面，只加十个工具，以及一个可选的
+重逢是一个 Host-only 的 DSH bundle：不加聊天面板、不改界面，只加十一个工具，以及一个可选的
 「按会话注入人格/线程段落」。
 
 - **上下文带走。** 导出文件只在本地读取，归一化成 `companions/<slug>/transcript.jsonl`；
@@ -266,7 +263,7 @@ node --test
 ## 目录
 
 ```
-index.js              Host 插件：十个工具 + 按会话的人格/线程段落
+index.js              Host 插件：十一个工具 + 按会话的人格/线程段落
 lib/config.mjs        可调参数、默认值、类型校验
 lib/i18n.mjs          中英结果文案与 locale 解析
 lib/source.mjs        输入识别，ZIP/目录/JSON/JSONL 打开

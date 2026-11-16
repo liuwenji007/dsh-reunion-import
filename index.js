@@ -16,7 +16,7 @@ import { resolveLocale, t } from './lib/i18n.mjs'
 import { importIntoCompanion, importSeparate, importThread, readExportSession } from './lib/import.mjs'
 import { inspectSource } from './lib/probe.mjs'
 import {
-  buildMemory, buildSoul, clamp, renderCommit, renderDelete, renderDigest, renderImport,
+  buildMemory, buildSoul, clamp, renderCommit, renderContinue, renderDelete, renderDigest, renderImport,
   renderInspect, renderImportSeparate, renderImportThread, renderList, renderLoad, renderPreview, renderRead, renderUnload,
 } from './lib/render.mjs'
 import { isShareRef } from './lib/share.mjs'
@@ -156,6 +156,103 @@ export function apply(ctx, rawConfig) {
     '',
     content.brief,
   ].join('\n')
+
+  /**
+   * Inject a thread or persona into the current agent session (and/or write a skill).
+   * @returns {Promise<{ text: string } | { payload: any, locale: 'zh'|'en' }>}
+   */
+  const loadCompanion = async (args, exec) => {
+    const slug = String(args?.slug ?? '').trim()
+    if (slug.length === 0) throw new Error('slug is required')
+    const mode = args?.mode === 'skill' || args?.mode === 'both' ? args.mode : 'session'
+    const root = companionsRootOf(exec)
+    const companion = await readCompanion(root, slug)
+    if (companion === null) return { text: t(localeOf(slug), 'load.notFound') }
+    const meta = companion.meta ?? {}
+    const isThread = companion.kind === 'thread'
+    if (!isThread && (companion.soul === null || companion.memory === null)) {
+      return { text: t(localeOf(slug), 'load.notFound') }
+    }
+    const locale = meta.locale === 'en' || meta.locale === 'zh'
+      ? meta.locale
+      : localeOf(`${companion.soul ?? companion.thread ?? ''}${companion.memory ?? ''}`)
+    let threadBrief = ''
+    if (isThread) {
+      threadBrief = companion.thread ?? (await buildThreadBriefFromTranscript({
+        transcriptPath: companion.transcriptPath,
+        title: meta.displayName ?? slug,
+        locale,
+        maxChars: config.threadBriefChars,
+      })).text
+    }
+    const agent = exec.agent
+    let sessionId
+    let switchedFrom
+    if (mode === 'session' || mode === 'both') {
+      if (agent === undefined || agent.ctx === undefined) return { text: t(locale, 'load.noAgent') }
+      const previous = loaded.get(agent.id)
+      if (previous?.slug === slug) {
+        sessionId = String(agent.id)
+      } else {
+        if (previous !== undefined) {
+          switchedFrom = previous.slug
+          unloadPersona(agent.id)
+        }
+        const content = isThread
+          ? threadSection({ displayName: meta.displayName ?? slug, brief: threadBrief.trim(), locale })
+          : personaSection({
+            displayName: meta.displayName ?? slug,
+            soul: companion.soul.trim(),
+            memory: companion.memory.trim(),
+            locale,
+          })
+        const fiber = agent.ctx.inject(['systemPrompt'], scope => {
+          scope.systemPrompt.section({
+            name: `reunion-persona-${slug}`,
+            order: scope.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX') + 1,
+            text: content,
+          })
+        })
+        loaded.set(agent.id, {
+          slug,
+          dispose: () => {
+            void fiber?.dispose?.()
+          },
+        })
+        sessionId = String(agent.id)
+      }
+    }
+    let skillWritten
+    if (mode === 'skill' || mode === 'both') {
+      skillWritten = await writeSkill(skillsRootOf(exec), slug, {
+        soul: isThread ? threadBrief : companion.soul,
+        memory: isThread ? '' : companion.memory,
+        displayName: meta.displayName ?? slug,
+        locale,
+        thread: isThread,
+      })
+    }
+    const opening = typeof args?.opening === 'string' && args.opening.trim() !== ''
+      ? args.opening.trim()
+      : t(locale, isThread ? 'load.threadOpening' : 'load.openingDefault')
+    return {
+      payload: {
+        slug,
+        kind: isThread ? 'thread' : 'persona',
+        displayName: meta.displayName ?? slug,
+        userNickname: meta.userNickname || '—',
+        messages: meta.messages ?? 0,
+        briefChars: isThread ? (meta.brief?.chars ?? threadBrief.length) : undefined,
+        sessionId,
+        skillPath: skillWritten === undefined ? undefined : displayPath(exec, skillWritten),
+        skillName: skillName(slug),
+        opening,
+        mode,
+        switchedFrom,
+      },
+      locale,
+    }
+  }
 
   const register = definition => {
     ctx.effect(() => ctx.tools.register(definition))
@@ -331,6 +428,63 @@ export function apply(ctx, rawConfig) {
         }))
       }
       return { text: renderImport(result, locale) }
+    },
+  })
+
+  register({
+    name: 'reunion_continue',
+    description: 'ONE-SHOT for ordinary users who paste a DeepSeek share link or one export conversation and want to keep chatting now. Imports as thread (low-context brief) and immediately loads it into this session. Prefer this over separate reunion_import+reunion_load when the user says things like "接着聊这条分享/这个导出". Not a full-history session importer. Share links contact chat.deepseek.com. For multi-conversation ZIPs pass session id (from reunion_inspect) or ask the user which one.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Export path, or DeepSeek public share URL / share id.' },
+        session: { type: 'string', description: 'Conversation id when the export has more than one session.' },
+        name: { type: 'string', description: 'Optional display name for the thread.' },
+        slug: { type: 'string', description: 'Optional directory slug.' },
+        opening: { type: 'string', description: 'Optional first line to suggest after load.' },
+      },
+      required: ['path'],
+      additionalProperties: false,
+    },
+    output: OUTPUT,
+    async execute(args, exec) {
+      const path = String(args?.path ?? '').trim()
+      if (path.length === 0) throw new Error('path is required')
+      const session = typeof args?.session === 'string' && args.session.trim() !== '' ? args.session.trim() : undefined
+      const displayName = String(args?.name ?? '').trim()
+      const slug = typeof args?.slug === 'string' && args.slug.trim() !== '' ? args.slug.trim() : undefined
+      const share = isShareRef(path)
+      const resolved = share ? path : resolveInside(workspaceOf(exec), path)
+      if (!share) {
+        const info = await statSafe(resolved)
+        if (info === null) throw new Error(`not found: ${resolved}`)
+      }
+      const locale = localeOf(displayName || path)
+      const imported = await importThread({
+        path: resolved,
+        sessions: session === undefined ? undefined : [session],
+        name: displayName || undefined,
+        slug,
+        companionsRoot: companionsRootOf(exec),
+        config,
+        locale,
+        signal: exec.signal,
+      })
+      if (!imported.unchanged) {
+        imported.files = imported.files.map(file => ({ ...file, path: displayPath(exec, join(imported.dir, file.path)) }))
+      }
+      const loadedResult = await loadCompanion({
+        slug: imported.slug,
+        mode: 'session',
+        opening: typeof args?.opening === 'string' ? args.opening : undefined,
+      }, exec)
+      if (loadedResult.text !== undefined) return { text: loadedResult.text }
+      return {
+        text: renderContinue({
+          imported,
+          loaded: loadedResult.payload,
+        }, loadedResult.locale),
+      }
     },
   })
 
@@ -534,11 +688,11 @@ export function apply(ctx, rawConfig) {
 
   register({
     name: 'reunion_load',
-    description: 'Load a thread brief or persona into this session only (system-prompt section; never the full transcript). For locked-chat continuation: reunion_import (thread) then reunion_load, then the user speaks the next line. Other sessions/subagents are unaffected. mode=skill also writes a workspace skill. reunion_unload removes the section.',
+    description: 'Load an already-imported thread brief or persona into this session only. Prefer reunion_continue when the user is pasting a share/export to start chatting in one step. mode=skill also writes a workspace skill. reunion_unload removes the section.',
     parameters: {
       type: 'object',
       properties: {
-        slug: { type: 'string', description: 'Persona slug saved by reunion_commit.' },
+        slug: { type: 'string', description: 'Slug from reunion_import / reunion_continue / reunion_commit.' },
         mode: {
           type: 'string',
           enum: ['session', 'skill', 'both'],
@@ -551,95 +705,9 @@ export function apply(ctx, rawConfig) {
     },
     output: OUTPUT,
     async execute(args, exec) {
-      const slug = String(args?.slug ?? '').trim()
-      if (slug.length === 0) throw new Error('slug is required')
-      const mode = args?.mode === 'skill' || args?.mode === 'both' ? args.mode : 'session'
-      const root = companionsRootOf(exec)
-      const companion = await readCompanion(root, slug)
-      if (companion === null) return { text: t(localeOf(slug), 'load.notFound') }
-      const meta = companion.meta ?? {}
-      const isThread = companion.kind === 'thread'
-      if (!isThread && (companion.soul === null || companion.memory === null)) {
-        return { text: t(localeOf(slug), 'load.notFound') }
-      }
-      const locale = meta.locale === 'en' || meta.locale === 'zh'
-        ? meta.locale
-        : localeOf(`${companion.soul ?? companion.thread ?? ''}${companion.memory ?? ''}`)
-      let threadBrief = ''
-      if (isThread) {
-        threadBrief = companion.thread ?? (await buildThreadBriefFromTranscript({
-          transcriptPath: companion.transcriptPath,
-          title: meta.displayName ?? slug,
-          locale,
-          maxChars: config.threadBriefChars,
-        })).text
-      }
-      const agent = exec.agent
-      let sessionId
-      let switchedFrom
-      if (mode === 'session' || mode === 'both') {
-        if (agent === undefined || agent.ctx === undefined) return { text: t(locale, 'load.noAgent') }
-        const previous = loaded.get(agent.id)
-        if (previous?.slug === slug) {
-          sessionId = String(agent.id)
-        } else {
-          if (previous !== undefined) {
-            switchedFrom = previous.slug
-            unloadPersona(agent.id)
-          }
-          const content = isThread
-            ? threadSection({ displayName: meta.displayName ?? slug, brief: threadBrief.trim(), locale })
-            : personaSection({
-              displayName: meta.displayName ?? slug,
-              soul: companion.soul.trim(),
-              memory: companion.memory.trim(),
-              locale,
-            })
-          const fiber = agent.ctx.inject(['systemPrompt'], scope => {
-            scope.systemPrompt.section({
-              name: `reunion-persona-${slug}`,
-              order: scope.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX') + 1,
-              text: content,
-            })
-          })
-          loaded.set(agent.id, {
-            slug,
-            dispose: () => {
-              void fiber?.dispose?.()
-            },
-          })
-          sessionId = String(agent.id)
-        }
-      }
-      let skillWritten
-      if (mode === 'skill' || mode === 'both') {
-        skillWritten = await writeSkill(skillsRootOf(exec), slug, {
-          soul: isThread ? threadBrief : companion.soul,
-          memory: isThread ? '' : companion.memory,
-          displayName: meta.displayName ?? slug,
-          locale,
-          thread: isThread,
-        })
-      }
-      const opening = typeof args?.opening === 'string' && args.opening.trim() !== ''
-        ? args.opening.trim()
-        : t(locale, isThread ? 'load.threadOpening' : 'load.openingDefault')
-      return {
-        text: renderLoad({
-          slug,
-          kind: isThread ? 'thread' : 'persona',
-          displayName: meta.displayName ?? slug,
-          userNickname: meta.userNickname || '—',
-          messages: meta.messages ?? 0,
-          briefChars: isThread ? (meta.brief?.chars ?? threadBrief.length) : undefined,
-          sessionId,
-          skillPath: skillWritten === undefined ? undefined : displayPath(exec, skillWritten),
-          skillName: skillName(slug),
-          opening,
-          mode,
-          switchedFrom,
-        }, locale),
-      }
+      const result = await loadCompanion(args, exec)
+      if (result.text !== undefined) return { text: result.text }
+      return { text: renderLoad(result.payload, result.locale) }
     },
   })
 
