@@ -91,6 +91,7 @@ test('loadDeepseekShare fetches the public share API through the injected fetch'
 test('loadDeepseekShare rejects deleted or empty shares', async () => {
   await assert.rejects(
     loadDeepseekShare('gone01', {
+      locale: 'zh',
       fetch: async () => ({
         ok: true,
         status: 200,
@@ -99,10 +100,11 @@ test('loadDeepseekShare rejects deleted or empty shares', async () => {
         },
       }),
     }),
-    /original session deleted|share unavailable/u,
+    /链接无效|原会话已删除|original session deleted/u,
   )
   await assert.rejects(
     loadDeepseekShare('empty1', {
+      locale: 'zh',
       fetch: async () => ({
         ok: true,
         status: 200,
@@ -111,7 +113,7 @@ test('loadDeepseekShare rejects deleted or empty shares', async () => {
         },
       }),
     }),
-    /no usable messages/u,
+    /没有可导入|no usable messages/u,
   )
 })
 

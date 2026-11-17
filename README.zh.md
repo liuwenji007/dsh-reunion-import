@@ -1,21 +1,23 @@
 # 重逢 · 轻量续写与人格还原
 
-**不是 Session 搬家工具。** 要侧栏完整历史气泡，用 DeepSeek Chat Import 等；
-重逢做的是：省上下文的续写包，以及可移植的人格 + 关系记忆——存档在你自己的磁盘上。
+**装完就能用。** 把 DeepSeek **分享链接**（推荐）或导出 **zip** 贴进 dsh-go，一句话接着聊——默认只注入约 **3.5k 字**续写包，不把全文反复灌进上下文。
 
-## 先选对工具：Session 导入 vs 重逢
+最短步骤（小红书 / 普通用户）见 **[docs/QUICKSTART.zh.md](docs/QUICKSTART.zh.md)**。
 
-官网/App 提示「不活跃长对话不能继续」时，记录通常还在，只是续不上。接到 DSH / dsh-go
-**不只有重逢一条路**——很多情况下应先用「导入成 Session」类插件：
+## 装完就能用（3 步）
 
-| 你要什么 | 用什么 | 得到什么 |
-| --- | --- | --- |
-| 侧栏里看到**完整历史气泡**，像原对话一样往下接 | DSH 的 DeepSeek Chat Import（或社区 Session 导入插件） | 每个官网会话 → 一个可续写的 DSH Session |
-| **少占上下文**，只要接得上题 + 语气还在 | 重逢 `thread` | `THREAD.md` 续写包（约 3.5k 字）注入当前会话 |
-| 带走**可移植人格**（口吻 + 关系记忆），换会话还能 load | 重逢 `merge` / `separate` | `SOUL.md` + `MEMORY.md` + 磁盘存档 |
+1. 手机 DeepSeek：打开会话 → **分享** → 复制 `https://chat.deepseek.com/share/…`（不要图片分享）。
+2. 在当前会话发：
 
-重逢**不是**第二个「把聊天搬进侧栏」的导入器；它做的是蒸馏与轻量续写。
-要完整气泡，请用 Session 导入；要省上下文 / 要人格，再用重逢。
+   > 用重逢接着聊：`https://chat.deepseek.com/share/xxxx`
+
+3. 助手应调用 **`reunion_continue`**（导入 + 装载一次完成）。然后**直接说下一句**。
+
+zip 备选：
+
+> 用重逢接着聊这个导出：`/path/to/export.zip`（多会话时先「帮我看看这个导出」再带上会话 id）
+
+不要拆成 import + load。完整气泡请用 Session 导入插件；人格蒸馏见下文进阶。
 
 ## 上下文与费用（怎么讲才准确）
 
@@ -33,20 +35,18 @@
 Pro + 超长时，差价才会明显到「几块～几十块」。不要承诺固定省多少钱——承诺「少灌全文」更稳。
 价格以 [DeepSeek 模型与价格](https://api-docs.deepseek.com/zh-cn/quick_start/pricing) 为准。
 
-## 今天：一句话接着聊（普通用户路径）
+## 进阶：先选对工具（Session 导入 vs 重逢）
 
-工具 **`reunion_continue`** = 导入 thread + 立刻装载。用户只需说一句：
+官网/App 提示「不活跃长对话不能继续」时，记录通常还在，只是续不上。接到 DSH / dsh-go
+**不只有重逢一条路**：
 
-> 用重逢接着聊这条分享：`https://chat.deepseek.com/share/xxxx`
+| 你要什么 | 用什么 | 得到什么 |
+| --- | --- | --- |
+| 侧栏里看到**完整历史气泡**，像原对话一样往下接 | DSH 的 DeepSeek Chat Import（或社区 Session 导入插件） | 每个官网会话 → 一个可续写的 DSH Session |
+| **少占上下文**，只要接得上题 + 语气还在 | 重逢 `thread` / `reunion_continue` | `THREAD.md` 续写包（约 3.5k 字）注入当前会话 |
+| 带走**可移植人格**（口吻 + 关系记忆），换会话还能 load | 重逢 `merge` / `separate` | `SOUL.md` + `MEMORY.md` + 磁盘存档 |
 
-或（本地导出里只有一个会话，或你已知道 id）：
-
-> 用重逢接着聊这个导出：`/path/to/export.zip`（会话 `c1`）
-
-然后**直接说下一句**。助手应调用 `reunion_continue`，不要拆成 import + load。
-
-多会话 zip 且用户没指定 id 时，先 `reunion_inspect` 问选哪一个，再 `reunion_continue`。
-完整气泡仍走 Session 导入；人格蒸馏仍走 merge 流水线。
+重逢**不是**第二个「把聊天搬进侧栏」的导入器；它做的是蒸馏与轻量续写。
 
 重逢是一个 Host-only 的 DSH bundle：不加聊天面板、不改界面，只加十一个工具，以及一个可选的
 「按会话注入人格/线程段落」。

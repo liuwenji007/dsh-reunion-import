@@ -260,7 +260,7 @@ export function apply(ctx, rawConfig) {
 
   register({
     name: 'reunion_inspect',
-    description: 'Inspect a DeepSeek chat export or a public share link before importing it: structure, conversation id/title/message count, field meanings, previews, and unrecognized fields. Accepts a ZIP export, an extracted export directory, one conversation JSON, JSON Lines, or a chat.deepseek.com/share/… link (network). Writes nothing.',
+    description: 'Look inside an export or share before continuing: structure, id/title/counts, previews. Use when the user says 帮我看看这个导出/分享, or a ZIP has multiple sessions and they have not picked an id yet. After inspect, prefer reunion_continue (with session) to keep chatting. Accepts ZIP, directory, JSON/JSONL, or chat.deepseek.com/share/… (network). Writes nothing.',
     parameters: {
       type: 'object',
       properties: {
@@ -284,12 +284,14 @@ export function apply(ctx, rawConfig) {
         const info = await statSafe(resolved)
         if (info === null) throw new Error(`not found: ${resolved}`)
       }
+      const localeHint = localeOf(path)
       const report = await inspectSource({
         path: resolved,
         config,
         signal: exec.signal,
         query: typeof args?.query === 'string' ? args.query : undefined,
         sort: args?.sort === 'span' || args?.sort === 'recent' ? args.sort : 'messages',
+        locale: localeHint,
       })
       const locale = localeOf(`${report.name}${report.previews?.first?.map(item => item.text).join('') ?? ''}`)
       return { text: renderInspect(report, locale, config.reportMaxChars) }
@@ -433,7 +435,7 @@ export function apply(ctx, rawConfig) {
 
   register({
     name: 'reunion_continue',
-    description: 'ONE-SHOT for ordinary users who paste a DeepSeek share link or one export conversation and want to keep chatting now. Imports as thread (low-context brief) and immediately loads it into this session. Prefer this over separate reunion_import+reunion_load when the user says things like "接着聊这条分享/这个导出". Not a full-history session importer. Share links contact chat.deepseek.com. For multi-conversation ZIPs pass session id (from reunion_inspect) or ask the user which one.',
+    description: 'ONE-SHOT keep-chatting for ordinary/XHS users. Prefer this when they say 用重逢接着聊 / 接着聊这条分享 / 接着聊这个导出 / continue this share. Imports as thread (~3.5k-char brief) and loads into this session in one call—do NOT split into reunion_import+reunion_load. path = share URL/id or export ZIP/dir. Multi-conversation ZIP requires session id (from reunion_inspect) or ask which one. Share URLs fetch chat.deepseek.com. Not a full-bubble session importer.',
     parameters: {
       type: 'object',
       properties: {

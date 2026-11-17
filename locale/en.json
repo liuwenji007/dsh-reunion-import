@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "Reunion · light continue and persona",
-    "description": "Not a session mover—use DeepSeek Chat Import for full bubbles. Ordinary users: one-shot reunion_continue (import+load, ~3.5k-char brief). Also merge/separate portable personas. Share/single-session default to thread. API bills depend on cache—don’t promise fixed savings. Local exports offline; share URLs fetch public snapshots. No telemetry. Uninstall never deletes companions/.",
+    "title": "Reunion · one-shot continue",
+    "description": "After install: paste a DeepSeek share link or export ZIP, say one line for reunion_continue (import+load, ~3.5k-char brief). For ordinary users; full sidebar bubbles need a session importer. Share URLs fetch public snapshots; local ZIPs stay offline. No telemetry.",
     "detail": "docs/DETAIL.md"
   }
 }

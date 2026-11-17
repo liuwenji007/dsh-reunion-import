@@ -1,7 +1,7 @@
 {
   "name": "dsh-reunion-import",
   "version": "0.1.3",
-  "description": "Not a session importer. One-shot reunion_continue (import+load) for light THREAD continuation (~3.5k chars), plus portable persona/memory for DeepSeek exports and share links.",
+  "description": "After install: paste a DeepSeek share link or ZIP and reunion_continue (import+load, ~3.5k-char brief). Plus portable persona/memory. Not a full-bubble session importer.",
   "type": "module",
   "license": "MIT",
   "keywords": [

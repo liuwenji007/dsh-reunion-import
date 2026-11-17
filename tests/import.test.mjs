@@ -277,7 +277,7 @@ test('thread import writes a continuation brief and no persona', async () => {
 
     await assert.rejects(
       importThread({ path: file, sessions: ['c1', 'c2'], companionsRoot: join(root, 'companions'), config, locale: 'zh' }),
-      /exactly one conversation/u,
+      /接着聊一次只能选一个|exactly one/u,
     )
   } finally {
     await rm(root, { recursive: true, force: true })

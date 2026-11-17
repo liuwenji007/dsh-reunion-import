@@ -1,23 +1,29 @@
 # Reunion (重逢) — light continue and persona
 
-**Not a sidebar session importer.** For full chat bubbles use DeepSeek Chat Import
-(or similar). Reunion distills a low-context continuation pack and/or a portable
-persona + relationship memory — archive on your disk, not locked in one session.
+**Ready after install.** Paste a DeepSeek **share link** (preferred) or an export
+**ZIP** into dsh-go and keep chatting in one line. Default path injects a ~**3.5k
+character** continuation pack—not the full transcript every turn.
 
-## Pick the right tool: session import vs Reunion
+Chinese quickstart (XHS / ordinary users): **[docs/QUICKSTART.zh.md](docs/QUICKSTART.zh.md)**.
 
-When the official app says inactive long chats cannot continue, history is usually
-still there — you just cannot append. Getting into DSH / dsh-go does **not** require
-Reunion. Prefer a session-import plugin when you want the full thread as bubbles:
+## Ready after install (3 steps)
 
-| You want | Use | You get |
-| --- | --- | --- |
-| Full history in the sidebar, continue like the original chat | DSH DeepSeek Chat Import (or a community session importer) | Each website conversation → a resumable DSH Session |
-| Low context cost; pick up the topic with some voice | Reunion `thread` | A ~3.5k-char `THREAD.md` pack injected into the current session |
-| A portable persona (voice + relationship memory) | Reunion `merge` / `separate` | `SOUL.md` + `MEMORY.md` + on-disk archive |
+1. In DeepSeek (phone/web): open the chat → **Share** → copy
+   `https://chat.deepseek.com/share/…` (links only; not image shares).
+2. In the current dsh-go session, send:
 
-Reunion is **not** a second “move chats into the sidebar” importer. It distills and
-continues lightly. Use session import for full bubbles; use Reunion for budget and persona.
+   > Continue this share with Reunion: `https://chat.deepseek.com/share/xxxx`
+
+3. The assistant should call **`reunion_continue`** once (import + load). Then
+   say the next line.
+
+ZIP fallback:
+
+> Continue this export with Reunion: `/path/to/export.zip` (if many sessions,
+> inspect first, then pass the session id)
+
+Do not split into import + load. Full sidebar bubbles need a session-import
+plugin; persona distillation is covered under Advanced below.
 
 ## Context size vs bill (say this carefully)
 
@@ -37,19 +43,20 @@ evening’s **price** gap is often cents to about a yuan; cache misses / Pro / v
 long threads make yuan gaps larger. Promise “less full-text in context,” not a
 fixed dollar saving. See [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing/).
 
-## Today: one sentence to keep chatting
+## Advanced: pick the right tool (session import vs Reunion)
 
-Tool **`reunion_continue`** = thread import + load in one call. Users can say:
+When the official app says inactive long chats cannot continue, history is usually
+still there — you just cannot append. Getting into DSH / dsh-go does **not** require
+Reunion:
 
-> Continue this share with Reunion: `https://chat.deepseek.com/share/xxxx`
+| You want | Use | You get |
+| --- | --- | --- |
+| Full history in the sidebar, continue like the original chat | DSH DeepSeek Chat Import (or a community session importer) | Each website conversation → a resumable DSH Session |
+| Low context cost; pick up the topic with some voice | Reunion `thread` / `reunion_continue` | A ~3.5k-char `THREAD.md` pack injected into the current session |
+| A portable persona (voice + relationship memory) | Reunion `merge` / `separate` | `SOUL.md` + `MEMORY.md` + on-disk archive |
 
-or
-
-> Continue this export with Reunion: `/path/to/export.zip` (session `c1`)
-
-The assistant should call `reunion_continue` once—not import then load separately.
-If a ZIP has many conversations and no id, `reunion_inspect` first. Full bubbles
-still use session import; persona work still uses merge.
+Reunion is **not** a second “move chats into the sidebar” importer. It distills and
+continues lightly.
 
 Reunion is a Host-only DSH bundle. It adds no chat panel and no UI; it adds eleven
 tools and one optional per-agent system-prompt section.

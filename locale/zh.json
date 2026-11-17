@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "重逢 · 轻量续写与人格还原",
-    "description": "不是 Session 搬家。完整气泡用 DeepSeek Chat Import；重逢：普通用户一句话 reunion_continue（导入+装载，约 3.5k 字续写包），以及 merge/separate 可移植人格。分享/单会话默认 thread。API 账单看缓存，勿承诺固定省钱。本地导出不上网；share 拉公开快照。无遥测。卸载不删 companions/。",
+    "title": "重逢 · 一句话接着聊",
+    "description": "装完就能用：粘贴 DeepSeek 分享链接或导出 zip，一句话 reunion_continue（导入+装载，约 3.5k 字续写包）。面向普通用户/小红书；完整气泡请用 Session 导入。分享会拉公开快照；本地 zip 不上网。无遥测。",
     "detail": "docs/DETAIL.zh.md"
   }
 }
