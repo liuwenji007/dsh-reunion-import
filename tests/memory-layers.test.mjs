@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { buildThreadBrief } from '../lib/brief.mjs'
-import { appendCorePins, buildCore } from '../lib/core.mjs'
+import { RECALL_HEADING, appendCorePins, buildCore, coreFactLines } from '../lib/core.mjs'
 import { DEFAULT_CONFIG } from '../lib/config.mjs'
 import { importThread } from '../lib/import.mjs'
 import { searchTranscript } from '../lib/recall.mjs'
@@ -26,6 +26,12 @@ test('CORE keeps the decision and THREAD does not repeat that sentence', () => {
   const beforeRecent = brief.text.split('最近对话')[0]
   assert.equal(beforeRecent.includes('建议周三前发一封短邮件'), false)
   assert.match(brief.text, /最近对话/u)
+})
+
+test('pin-only CORE has no imported fact lines', () => {
+  const pinOnly = `\n\n${RECALL_HEADING}\n- 团子打碎了杯子\n`
+  assert.equal(coreFactLines(pinOnly).length, 0)
+  assert.ok(coreFactLines(buildCore({ title: '论文', locale: 'zh', maxChars: 1200, messages }).text).length > 0)
 })
 
 test('appendCorePins drops the oldest pin and keeps imported facts', () => {

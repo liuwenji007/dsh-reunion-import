@@ -1,8 +1,8 @@
 # Reunion (重逢) — light continue and persona
 
 **Ready after install.** Paste a DeepSeek **share link** (preferred) or an export
-**ZIP** into dsh-go and keep chatting in one line. Default path injects a ~**3.5k
-character** continuation pack—not the full transcript every turn.
+**ZIP** into dsh-go and keep chatting in one line. Default path injects **CORE +
+THREAD** (~**3.7k characters**)—remember what matters, not the full transcript every turn.
 
 Chinese quickstart (XHS / ordinary users): **[docs/QUICKSTART.zh.md](docs/QUICKSTART.zh.md)**.
 
@@ -27,15 +27,15 @@ plugin; persona distillation is covered under Advanced below.
 
 ## Context size vs bill (say this carefully)
 
-`thread` injects about **3.5k characters** (~2k+ tokens) of continuation pack. A full
+`thread` injects about **3.7k characters** of CORE + recent brief (~2k+ tokens). A full
 session import keeps carrying the original thread. The gap is the **background
 resent every turn**:
 
 | Original thread | Full background (ballpark) | Reunion background | Order of savings |
 | --- | --- | --- | --- |
-| ~30k Chinese chars | ~20k tokens | ~3k | smaller order-of-magnitude |
-| ~100k | ~60k | ~3k | ~**20×** less background |
-| ~300k | ~190k | ~3k | up to ~**60×** less background |
+| ~30k Chinese chars | ~20k tokens | ~4k | smaller order-of-magnitude |
+| ~100k | ~60k | ~4k | ~**15×** less background |
+| ~300k | ~190k | ~4k | up to ~**50×** less background |
 
 On the official API, **token volume drops a lot; yuan savings depend on cache hits,
 Flash vs Pro, and thinking mode.** With off-peak + stable prefix cache hits, an
@@ -52,7 +52,7 @@ Reunion:
 | You want | Use | You get |
 | --- | --- | --- |
 | Full history in the sidebar, continue like the original chat | DSH DeepSeek Chat Import (or a community session importer) | Each website conversation → a resumable DSH Session |
-| Low context cost; pick up the topic with some voice | Reunion `thread` / `reunion_continue` | A ~3.5k-char `THREAD.md` pack injected into the current session |
+| Low context cost; pick up the topic with some voice | Reunion `thread` / `reunion_continue` | `CORE.md` + `THREAD.md` (~3.7k chars); details via `reunion_recall` |
 | A portable persona (voice + relationship memory) | Reunion `merge` / `separate` | `SOUL.md` + `MEMORY.md` + on-disk archive |
 
 Reunion is **not** a second “move chats into the sidebar” importer. It distills and
@@ -86,7 +86,7 @@ persona onto all of them: `inspect` and `read` let you confirm a thread,
 
 | Shape | `mode` | Writes | Use it for |
 | --- | --- | --- | --- |
-| Continue a thread | `thread` | `transcript.jsonl` + `THREAD.md` (facts + voice anchors + recent turns; ~3.5k chars by default) | A long thread you want to keep working on, without the persona pipeline. |
+| Continue a thread | `thread` | `transcript.jsonl` + `CORE.md` (durable facts) + `THREAD.md` (voice + recent; ~3.7k chars together) | A long thread you want to keep working on, without the persona pipeline. |
 | One character, several threads | `merge` | `SOUL.md` + `MEMORY.md` + archive | The same AI character spread across conversations. |
 | Mirror the website | `separate` | One directory per conversation | You want each thread kept apart, each loadable on its own. |
 
@@ -146,7 +146,7 @@ own data.
    > Thread-import this share link and keep talking. (share links default to
    > `thread`)
 
-   Thread mode writes `THREAD.md` and stops there: no persona preview, no
+   Thread mode writes `CORE.md` + `THREAD.md` and stops there: no persona preview, no
    confirmation step; `reunion_load` puts the brief into a session.
 
    Merge mode refuses to merge an export that holds several conversations
@@ -235,7 +235,8 @@ library code, so both paths produce identical files.
 companions/<slug>/
   SOUL.md            persona only: voice rules + verbatim anchors
   MEMORY.md          persona only: relationship memory (budgeted, low-confidence section)
-  THREAD.md          thread only: factual continuation brief
+  CORE.md            thread only: durable facts (decisions, todos, address)
+  THREAD.md          thread only: voice anchors + recent hot window
   transcript.jsonl   full archive: one JSON object per line { role, content, ts, turn }
   meta.json          kind (persona|thread), sources, SHA-256, counts, time range, budget
 ```

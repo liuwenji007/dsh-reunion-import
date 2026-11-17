@@ -6,12 +6,13 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { apply, inject, name } from '../index.js'
+import { buildThreadBrief } from '../lib/brief.mjs'
 import {
-  assistantMessage, buildExportZip, conversation, sampleConversation, userMessage,
+  assistantMessage, buildExportZip, conversation, sampleConversation, userMessage, writeTranscript,
 } from './fixtures.mjs'
 
 /** Collect the tools a plugin registers. */
@@ -252,7 +253,8 @@ test('recall pins a thread hit and a skill contains core plus the brief', async 
     const host = hostStub(root)
     apply(host.ctx, { locale: 'zh' })
     const tool = toolName => host.tools.find(item => item.name === toolName)
-    const exec = execution([])
+    const sections = []
+    const exec = execution(sections)
     await tool('reunion_continue').execute({ path: exportFile, session: 'c1', name: '团子' }, exec)
     const recalled = await tool('reunion_recall').execute({ query: '团子' }, exec)
     assert.match(recalled.text, /团子/u)
@@ -260,11 +262,73 @@ test('recall pins a thread hit and a skill contains core plus the brief', async 
     const core = await readFile(join(root, 'companions', '团子', 'CORE.md'), 'utf8')
     assert.match(core, /## 回想/u)
     assert.match(core, /团子/u)
+    assert.match(core, /硬约定/u)
+    await tool('reunion_load').execute({ slug: '团子' }, exec)
+    assert.match(sections.at(-1).text, /## 回想/u)
+    assert.match(sections.at(-1).text, /团子/u)
     await tool('reunion_load').execute({ slug: '团子', mode: 'skill' }, execution([]))
     const skills = await readdir(join(root, '.dsh', 'skills'))
     const skill = await readFile(join(root, '.dsh', 'skills', skills[0], 'SKILL.md'), 'utf8')
-    assert.match(skill, /核心记忆/u)
+    assert.match(skill, /硬约定/u)
     assert.match(skill, /对话线程/u)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('recall on a CORE-less archive rebuilds hard facts before pinning', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'reunion-poison-'))
+  try {
+    const exportFile = join(root, 'export.zip')
+    await writeFile(exportFile, buildExportZip({ conversations: [sampleConversation()] }))
+    const host = hostStub(root)
+    apply(host.ctx, { locale: 'zh' })
+    const tool = toolName => host.tools.find(item => item.name === toolName)
+    await tool('reunion_import').execute({ path: exportFile, mode: 'thread', session: 'c1', name: '旧档' }, execution([]))
+    await rm(join(root, 'companions', '旧档', 'CORE.md'), { force: true })
+    await tool('reunion_recall').execute({ query: '团子', slug: '旧档' }, execution([]))
+    const core = await readFile(join(root, 'companions', '旧档', 'CORE.md'), 'utf8')
+    assert.match(core, /硬约定/u)
+    assert.match(core, /## 回想/u)
+    assert.match(core, /团子/u)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('loading a legacy thread rebuilds CORE and omits its facts from THREAD', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'reunion-legacy-'))
+  try {
+    const messages = [
+      { role: 'user', content: '我叫小林，论文十一月要交初稿，导师不想单独见我怎么办？', ts: 1 },
+      { role: 'assistant', content: '宝，先说结论：建议周三前发一封短邮件，只问两个事实问题。下一步是约确认。', ts: 2 },
+      { role: 'user', content: '如果他还是不回呢？', ts: 3 },
+    ]
+    const file = await writeTranscript(join(root, 't.jsonl'), messages)
+    const brief = buildThreadBrief({ title: '论文', locale: 'zh', maxChars: 2500, messages })
+    const dir = join(root, 'companions', '论文')
+    await mkdir(dir, { recursive: true })
+    await writeFile(join(dir, 'THREAD.md'), brief.text)
+    await writeFile(join(dir, 'transcript.jsonl'), await readFile(file))
+    await writeFile(join(dir, 'meta.json'), `${JSON.stringify({
+      slug: '论文', displayName: '论文', kind: 'thread', locale: 'zh', createdAt: new Date().toISOString(),
+    }, null, 2)}\n`)
+    assert.match(brief.text, /建议周三前发一封短邮件/u)
+
+    const host = hostStub(root)
+    apply(host.ctx, { locale: 'zh' })
+    const tool = toolName => host.tools.find(item => item.name === toolName)
+    const sections = []
+    await tool('reunion_load').execute({ slug: '论文' }, execution(sections))
+    const core = await readFile(join(dir, 'CORE.md'), 'utf8')
+    const thread = await readFile(join(dir, 'THREAD.md'), 'utf8')
+    const injected = sections.map(item => item.text).join('\n')
+    const needle = '建议周三前发一封短邮件'
+    assert.match(core, new RegExp(needle, 'u'))
+    assert.equal(thread.split('最近对话')[0].includes(needle), false)
+    assert.match(injected, /### 核心记忆[\s\S]*建议周三前发一封短邮件/u)
+    assert.equal(injected.split('### 近期续写')[0].includes(needle), true)
+    assert.equal(injected.split('### 近期续写')[1].split('最近对话')[0].includes(needle), false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

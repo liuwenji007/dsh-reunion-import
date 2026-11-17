@@ -23,10 +23,13 @@ import { isShareRef } from './lib/share.mjs'
 import { resolveInside } from './lib/slug.mjs'
 import {
   deleteCompanion, deleteSkill, listCompanions, readCompanion, skillName, statSafe, writeCore, writePersona, writeSkill,
+  writeThread,
 } from './lib/store.mjs'
 import { iterateTranscript } from './lib/transcript.mjs'
 import { buildThreadBriefFromTranscript } from './lib/brief.mjs'
-import { appendCorePins, buildCoreFromTranscript, coreFactLines } from './lib/core.mjs'
+import {
+  appendCorePins, buildCoreFromTranscript, coreFactLines, corePinLines,
+} from './lib/core.mjs'
 import { searchTranscript } from './lib/recall.mjs'
 import { validateDraft } from './lib/validate.mjs'
 
@@ -185,23 +188,45 @@ export function apply(ctx, rawConfig) {
     let threadBrief = ''
     let coreText = companion.core ?? ''
     if (isThread) {
-      if (coreText.trim() === '') {
+      let coreRebuilt = false
+      if (coreFactLines(coreText).length === 0) {
         const built = await buildCoreFromTranscript({
           transcriptPath: companion.transcriptPath,
           title: meta.displayName ?? slug,
           locale,
           maxChars: config.coreChars,
         })
-        coreText = built.text
+        const existingPins = corePinLines(coreText)
+        coreText = existingPins.length > 0
+          ? appendCorePins(built.text, existingPins, config.coreChars)
+          : built.text
         await writeCore(root, slug, coreText)
+        coreRebuilt = true
       }
-      threadBrief = companion.thread ?? (await buildThreadBriefFromTranscript({
-        transcriptPath: companion.transcriptPath,
-        title: meta.displayName ?? slug,
-        locale,
-        maxChars: config.threadBriefChars,
-        omit: coreFactLines(coreText),
-      })).text
+      if (coreRebuilt || companion.thread == null || companion.thread.trim() === '') {
+        threadBrief = (await buildThreadBriefFromTranscript({
+          transcriptPath: companion.transcriptPath,
+          title: meta.displayName ?? slug,
+          locale,
+          maxChars: config.threadBriefChars,
+          omit: coreFactLines(coreText),
+        })).text
+        await writeThread(root, slug, {
+          brief: threadBrief,
+          meta: {
+            ...(meta ?? {}),
+            slug,
+            kind: 'thread',
+            displayName: meta.displayName ?? slug,
+            locale,
+            core: { chars: coreText.length },
+            updatedAt: new Date().toISOString(),
+          },
+          core: coreText,
+        })
+      } else {
+        threadBrief = companion.thread
+      }
     }
     const agent = exec.agent
     let sessionId
@@ -209,36 +234,32 @@ export function apply(ctx, rawConfig) {
     if (mode === 'session' || mode === 'both') {
       if (agent === undefined || agent.ctx === undefined) return { text: t(locale, 'load.noAgent') }
       const previous = loaded.get(agent.id)
-      if (previous?.slug === slug) {
-        sessionId = String(agent.id)
-      } else {
-        if (previous !== undefined) {
-          switchedFrom = previous.slug
-          unloadPersona(agent.id)
-        }
-        const content = isThread
-          ? threadSection({ displayName: meta.displayName ?? slug, brief: threadBrief.trim(), core: coreText, locale })
-          : personaSection({
-            displayName: meta.displayName ?? slug,
-            soul: companion.soul.trim(),
-            memory: companion.memory.trim(),
-            locale,
-          })
-        const fiber = agent.ctx.inject(['systemPrompt'], scope => {
-          scope.systemPrompt.section({
-            name: `reunion-persona-${slug}`,
-            order: scope.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX') + 1,
-            text: content,
-          })
-        })
-        loaded.set(agent.id, {
-          slug,
-          dispose: () => {
-            void fiber?.dispose?.()
-          },
-        })
-        sessionId = String(agent.id)
+      if (previous !== undefined) {
+        if (previous.slug !== slug) switchedFrom = previous.slug
+        unloadPersona(agent.id)
       }
+      const content = isThread
+        ? threadSection({ displayName: meta.displayName ?? slug, brief: threadBrief.trim(), core: coreText, locale })
+        : personaSection({
+          displayName: meta.displayName ?? slug,
+          soul: companion.soul.trim(),
+          memory: companion.memory.trim(),
+          locale,
+        })
+      const fiber = agent.ctx.inject(['systemPrompt'], scope => {
+        scope.systemPrompt.section({
+          name: `reunion-persona-${slug}`,
+          order: scope.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX') + 1,
+          text: content,
+        })
+      })
+      loaded.set(agent.id, {
+        slug,
+        dispose: () => {
+          void fiber?.dispose?.()
+        },
+      })
+      sessionId = String(agent.id)
     }
     let skillWritten
     if (mode === 'skill' || mode === 'both') {
@@ -352,7 +373,7 @@ export function apply(ctx, rawConfig) {
 
   register({
     name: 'reunion_import',
-    description: 'NOT a full-history session importer (use DeepSeek Chat Import for sidebar bubbles). Reunion: mode "thread" = low-context continuation pack (~3.5k chars, no persona)—DEFAULT for share links and when exactly one conversation id is selected; mode "merge" = one portable persona (requires name); mode "separate" = one persona per conversation. Prefer thread when the user wants to keep talking after a locked DeepSeek chat. Share links contact chat.deepseek.com. Never modifies the export. After import, call reunion_load.',
+    description: 'NOT a full-history session importer (use DeepSeek Chat Import for sidebar bubbles). Reunion: mode "thread" = low-context CORE+THREAD pack (~3.7k chars, no persona)—DEFAULT for share links and when exactly one conversation id is selected; mode "merge" = one portable persona (requires name); mode "separate" = one persona per conversation. Prefer thread when the user wants to keep talking after a locked DeepSeek chat. Share links contact chat.deepseek.com. Never modifies the export. After import, call reunion_load.',
     parameters: {
       type: 'object',
       properties: {
@@ -453,7 +474,7 @@ export function apply(ctx, rawConfig) {
 
   register({
     name: 'reunion_continue',
-    description: 'ONE-SHOT keep-chatting for ordinary/XHS users. Prefer this when they say 用重逢接着聊 / 接着聊这条分享 / 接着聊这个导出 / continue this share. Imports as thread (~3.5k-char brief) and loads into this session in one call—do NOT split into reunion_import+reunion_load. path = share URL/id or export ZIP/dir. Multi-conversation ZIP requires session id (from reunion_inspect) or ask which one. Share URLs fetch chat.deepseek.com. Not a full-bubble session importer.',
+    description: 'ONE-SHOT keep-chatting for ordinary/XHS users. Prefer this when they say 用重逢接着聊 / 接着聊这条分享 / 接着聊这个导出 / continue this share. Imports as thread (CORE+THREAD ~3.7k chars) and loads into this session in one call—do NOT split into reunion_import+reunion_load. path = share URL/id or export ZIP/dir. Multi-conversation ZIP requires session id (from reunion_inspect) or ask which one. Share URLs fetch chat.deepseek.com. Not a full-bubble session importer.',
     parameters: {
       type: 'object',
       properties: {
@@ -543,7 +564,19 @@ export function apply(ctx, rawConfig) {
       if (hits.length === 0) return { text: t(locale, 'recall.empty', { query }) }
       let pinned = false
       if (config.recallAutoPin === true && companion.kind === 'thread') {
-        const next = appendCorePins(companion.core ?? '', hits.map(hit => hit.text), config.coreChars)
+        const meta = companion.meta ?? {}
+        const pinLocale = meta.locale === 'en' || meta.locale === 'zh' ? meta.locale : locale
+        let base = companion.core ?? ''
+        if (coreFactLines(base).length === 0) {
+          const built = await buildCoreFromTranscript({
+            transcriptPath: companion.transcriptPath,
+            title: meta.displayName ?? slug,
+            locale: pinLocale,
+            maxChars: config.coreChars,
+          })
+          base = appendCorePins(built.text, corePinLines(companion.core ?? ''), config.coreChars)
+        }
+        const next = appendCorePins(base, hits.map(hit => hit.text), config.coreChars)
         if (next !== (companion.core ?? '')) {
           await writeCore(root, slug, next)
           pinned = true
