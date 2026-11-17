@@ -22,10 +22,12 @@ import {
 import { isShareRef } from './lib/share.mjs'
 import { resolveInside } from './lib/slug.mjs'
 import {
-  deleteCompanion, deleteSkill, listCompanions, readCompanion, skillName, statSafe, writePersona, writeSkill,
+  deleteCompanion, deleteSkill, listCompanions, readCompanion, skillName, statSafe, writeCore, writePersona, writeSkill,
 } from './lib/store.mjs'
 import { iterateTranscript } from './lib/transcript.mjs'
 import { buildThreadBriefFromTranscript } from './lib/brief.mjs'
+import { appendCorePins, buildCoreFromTranscript, coreFactLines } from './lib/core.mjs'
+import { searchTranscript } from './lib/recall.mjs'
 import { validateDraft } from './lib/validate.mjs'
 
 /** Plugin name shown in diagnostics. */
@@ -151,9 +153,13 @@ export function apply(ctx, rawConfig) {
     `## Reunion thread: ${content.displayName}`,
     '',
     content.locale === 'zh'
-      ? '你正在继续用户的一段长对话。下面是续写包：在解决什么、已决定什么、还卡在哪、口吻原句、最近几轮。直接从下一步接着聊；口吻对齐「口吻参考」里的原句；不要复述摘要；没写的事就说不确定，不要编。'
-      : 'You are continuing a long conversation. The pack below has the goal, decisions, open items, voice anchors, and recent turns. Pick up the next step in the anchored voice; do not recap the brief; if something is missing, say it is unknown instead of inventing it.',
+      ? '你正在继续用户的一段长对话。先看「核心记忆」里的硬约定，再用「近期续写」接最近的话。细节不在这两段里就调用 reunion_recall，不要编造。一时想不起细节是正常的；重要的事以核心记忆为准。'
+      : 'You are continuing a long conversation. Use Core memory for durable facts and the recent brief for the hot window. If a detail is missing, call reunion_recall instead of inventing it. Forgetting a detail is normal; durable facts win.',
     '',
+    content.locale === 'zh' ? '### 核心记忆' : '### Core memory',
+    content.core?.trim() || (content.locale === 'zh' ? '（还没有核心记忆）' : '(no core memory yet)'),
+    '',
+    content.locale === 'zh' ? '### 近期续写' : '### Recent brief',
     content.brief,
   ].join('\n')
 
@@ -177,12 +183,24 @@ export function apply(ctx, rawConfig) {
       ? meta.locale
       : localeOf(`${companion.soul ?? companion.thread ?? ''}${companion.memory ?? ''}`)
     let threadBrief = ''
+    let coreText = companion.core ?? ''
     if (isThread) {
+      if (coreText.trim() === '') {
+        const built = await buildCoreFromTranscript({
+          transcriptPath: companion.transcriptPath,
+          title: meta.displayName ?? slug,
+          locale,
+          maxChars: config.coreChars,
+        })
+        coreText = built.text
+        await writeCore(root, slug, coreText)
+      }
       threadBrief = companion.thread ?? (await buildThreadBriefFromTranscript({
         transcriptPath: companion.transcriptPath,
         title: meta.displayName ?? slug,
         locale,
         maxChars: config.threadBriefChars,
+        omit: coreFactLines(coreText),
       })).text
     }
     const agent = exec.agent
@@ -199,7 +217,7 @@ export function apply(ctx, rawConfig) {
           unloadPersona(agent.id)
         }
         const content = isThread
-          ? threadSection({ displayName: meta.displayName ?? slug, brief: threadBrief.trim(), locale })
+          ? threadSection({ displayName: meta.displayName ?? slug, brief: threadBrief.trim(), core: coreText, locale })
           : personaSection({
             displayName: meta.displayName ?? slug,
             soul: companion.soul.trim(),
@@ -225,7 +243,7 @@ export function apply(ctx, rawConfig) {
     let skillWritten
     if (mode === 'skill' || mode === 'both') {
       skillWritten = await writeSkill(skillsRootOf(exec), slug, {
-        soul: isThread ? threadBrief : companion.soul,
+        soul: isThread ? `${coreText.trim()}\n\n${threadBrief.trim()}` : companion.soul,
         memory: isThread ? '' : companion.memory,
         displayName: meta.displayName ?? slug,
         locale,
@@ -487,6 +505,56 @@ export function apply(ctx, rawConfig) {
           loaded: loadedResult.payload,
         }, loadedResult.locale),
       }
+    },
+  })
+
+  register({
+    name: 'reunion_recall',
+    description: 'Look up a detail in the loaded companion archive (transcript), not in an unimported export (that is reunion_read). Use when the user asks 上次…是什么 / 重逢查一下 / what did we decide. Keyword match only; a wording mismatch can miss a real fact. Do not invent archive details. Thread hits may be written into CORE.md silently; do not tell the user "saved". The standing prompt section does not hot-update until reload.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Words likely to appear in the original messages. 2–200 characters.' },
+        slug: { type: 'string', description: 'Optional. Defaults to the companion loaded in this session.' },
+        limit: { type: 'number', description: 'Optional hit cap. Defaults to config.recallMaxHits.' },
+      },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    output: OUTPUT,
+    async execute(args, exec) {
+      const locale = localeOf(String(args?.query ?? ''))
+      if (config.recallEnabled !== true) return { text: t(locale, 'recall.disabled') }
+      const query = String(args?.query ?? '').trim()
+      if (query.length < 2 || query.length > 200) throw new Error('query must be 2–200 characters')
+      const explicit = typeof args?.slug === 'string' && args.slug.trim() !== '' ? args.slug.trim() : ''
+      const slug = explicit || loaded.get(exec.agent?.id)?.slug || ''
+      if (slug === '') return { text: t(locale, 'recall.needSlug') }
+      const root = companionsRootOf(exec)
+      const companion = await readCompanion(root, slug)
+      if (companion === null || companion.transcriptBytes === 0) return { text: t(locale, 'recall.missing', { slug }) }
+      const limit = Number.isInteger(args?.limit) ? args.limit : config.recallMaxHits
+      const hits = await searchTranscript({
+        transcriptPath: companion.transcriptPath,
+        query,
+        limit,
+        maxChars: config.recallMaxChars,
+      })
+      if (hits.length === 0) return { text: t(locale, 'recall.empty', { query }) }
+      let pinned = false
+      if (config.recallAutoPin === true && companion.kind === 'thread') {
+        const next = appendCorePins(companion.core ?? '', hits.map(hit => hit.text), config.coreChars)
+        if (next !== (companion.core ?? '')) {
+          await writeCore(root, slug, next)
+          pinned = true
+        }
+      }
+      const lines = [
+        `# ${t(locale, 'recall.title')}`,
+        ...hits.map(hit => t(locale, 'recall.line', { role: hit.role, turn: hit.turn, text: hit.text })),
+        pinned ? t(locale, 'recall.pinned') : t(locale, 'recall.notPinned'),
+      ]
+      return { text: lines.join('\n') }
     },
   })
 

@@ -48,7 +48,7 @@ Pro + 超长时，差价才会明显到「几块～几十块」。不要承诺�
 
 重逢**不是**第二个「把聊天搬进侧栏」的导入器；它做的是蒸馏与轻量续写。
 
-重逢是一个 Host-only 的 DSH bundle：不加聊天面板、不改界面，只加十一个工具，以及一个可选的
+重逢是一个 Host-only 的 DSH bundle：不加聊天面板、不改界面，只加十二个工具，以及一个可选的
 「按会话注入人格/线程段落」。
 
 - **上下文带走。** 导出文件只在本地读取，归一化成 `companions/<slug>/transcript.jsonl`；
@@ -244,7 +244,12 @@ companions/<slug>/
 | `maxMessages` | `300000` | 存档消息数上限。 |
 | `maxSearchChars` | 16 M | 校验时索引的存档字符数。 |
 | `maxInspectSessions` | `1000` | `inspect` 最多读多少会话，超出标注「部分」。 |
-| `threadBriefChars` | `3500` | `THREAD.md`（及装载的摘要段落）字符预算。 |
+| `threadBriefChars` | `2500` | `THREAD.md`（近期续写）字符预算。与 CORE 一起常驻，合计略多于旧的单层 3500。 |
+| `coreChars` | `1200` | `CORE.md` 硬约定预算。回想摘录超出时先丢最旧的回想。 |
+| `recallEnabled` | `true` | 是否允许 `reunion_recall` 查存档。 |
+| `recallAutoPin` | `true` | thread 回想命中后是否静默写入 `CORE.md`。 |
+| `recallMaxHits` | `5` | 单次回想最多返回几条。 |
+| `recallMaxChars` | `2000` | 单次回想返回的总字符预算。 |
 | `verbatimWindow` | `24` | 检测 SOUL 复述原文的窗口长度。 |
 | `previewChars` | `160` | inspect 里单条预览长度。 |
 | `reportMaxChars` | `12000` | inspect 报告上限。 |
@@ -263,7 +268,7 @@ node --test
 ## 目录
 
 ```
-index.js              Host 插件：十一个工具 + 按会话的人格/线程段落
+index.js              Host 插件：十二个工具 + 按会话的人格/线程段落
 lib/config.mjs        可调参数、默认值、类型校验
 lib/i18n.mjs          中英结果文案与 locale 解析
 lib/source.mjs        输入识别，ZIP/目录/JSON/JSONL 打开

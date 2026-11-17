@@ -6,7 +6,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { apply, inject, name } from '../index.js'
@@ -69,17 +69,17 @@ function execution(sections = []) {
   }
 }
 
-test('the bundle registers eleven tools and exposes the plugin contract', () => {
+test('the bundle registers twelve tools and exposes the plugin contract', () => {
   assert.equal(name, 'dsh-reunion-import')
   assert.deepEqual(inject, ['tools', 'systemPrompt'])
   const host = hostStub(tmpdir())
   apply(host.ctx, { locale: 'zh' })
   const names = host.tools.map(tool => tool.name)
   assert.deepEqual(names, [
-    'reunion_inspect', 'reunion_read', 'reunion_import', 'reunion_continue', 'reunion_digest',
+    'reunion_inspect', 'reunion_read', 'reunion_import', 'reunion_continue', 'reunion_recall', 'reunion_digest',
     'reunion_compose', 'reunion_commit', 'reunion_load', 'reunion_unload', 'reunion_list', 'reunion_delete',
   ])
-  assert.equal(new Set(names).size, 11)
+  assert.equal(new Set(names).size, 12)
   for (const tool of host.tools) {
     assert.equal(typeof tool.description, 'string')
     assert.equal(tool.parameters.type, 'object')
@@ -236,7 +236,35 @@ test('reunion_continue imports a thread and loads it in one call', async () => {
     assert.match(result.text, /请用户直接说下一句/u)
     assert.equal(sections.length, 1)
     assert.match(sections[0].text, /Reunion thread/u)
+    assert.match(sections[0].text, /核心记忆/u)
     assert.match(await readFile(join(root, 'companions', '一句话续聊', 'THREAD.md'), 'utf8'), /对话线程/u)
+    assert.match(await readFile(join(root, 'companions', '一句话续聊', 'CORE.md'), 'utf8'), /核心记忆/u)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('recall pins a thread hit and a skill contains core plus the brief', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'reunion-recall-'))
+  try {
+    const exportFile = join(root, 'export.zip')
+    await writeFile(exportFile, buildExportZip({ conversations: [sampleConversation()] }))
+    const host = hostStub(root)
+    apply(host.ctx, { locale: 'zh' })
+    const tool = toolName => host.tools.find(item => item.name === toolName)
+    const exec = execution([])
+    await tool('reunion_continue').execute({ path: exportFile, session: 'c1', name: '团子' }, exec)
+    const recalled = await tool('reunion_recall').execute({ query: '团子' }, exec)
+    assert.match(recalled.text, /团子/u)
+    assert.match(recalled.text, /已写入核心记忆/u)
+    const core = await readFile(join(root, 'companions', '团子', 'CORE.md'), 'utf8')
+    assert.match(core, /## 回想/u)
+    assert.match(core, /团子/u)
+    await tool('reunion_load').execute({ slug: '团子', mode: 'skill' }, execution([]))
+    const skills = await readdir(join(root, '.dsh', 'skills'))
+    const skill = await readFile(join(root, '.dsh', 'skills', skills[0], 'SKILL.md'), 'utf8')
+    assert.match(skill, /核心记忆/u)
+    assert.match(skill, /对话线程/u)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

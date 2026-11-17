@@ -58,7 +58,7 @@ Reunion:
 Reunion is **not** a second “move chats into the sidebar” importer. It distills and
 continues lightly.
 
-Reunion is a Host-only DSH bundle. It adds no chat panel and no UI; it adds eleven
+Reunion is a Host-only DSH bundle. It adds no chat panel and no UI; it adds twelve
 tools and one optional per-agent system-prompt section.
 
 - **Bring your context with you.** The export is read locally and normalized
@@ -320,7 +320,12 @@ Set keys in the bundle's row config (or the profile patch). Defaults:
 | `maxMessages` | `300000` | Transcript size ceiling. |
 | `maxSearchChars` | 16 M | Transcript characters indexed for anchor and anti-verbatim checks. |
 | `maxInspectSessions` | `1000` | Conversations `inspect` reads before reporting partial totals. |
-| `threadBriefChars` | `3500` | Character budget of `THREAD.md` (and the loaded thread section). |
+| `threadBriefChars` | `2500` | Character budget of `THREAD.md` (recent brief). Together with CORE this is a bit more than the old 3500-character single brief. |
+| `coreChars` | `1200` | Budget of `CORE.md`. When recall pins overflow, the oldest pins are dropped first. |
+| `recallEnabled` | `true` | Whether `reunion_recall` may search the archive. |
+| `recallAutoPin` | `true` | Whether a thread recall hit is silently written into `CORE.md`. |
+| `recallMaxHits` | `5` | Maximum hits returned by one recall. |
+| `recallMaxChars` | `2000` | Character budget of one recall result. |
 | `verbatimWindow` | `24` | Window used to detect recapping in SOUL prose. |
 | `previewChars` | `160` | Message preview length in inspect output. |
 | `reportMaxChars` | `12000` | Inspect report budget. |
@@ -341,7 +346,7 @@ the anti-verbatim guard. No model is involved in any test.
 ## Layout
 
 ```
-index.js              Host plugin: eleven tools + per-agent persona/thread section
+index.js              Host plugin: twelve tools + per-agent persona/thread section
 lib/config.mjs        tunables, defaults, coercion
 lib/i18n.mjs          zh/en result text, locale resolution
 lib/source.mjs        input detection, ZIP/directory/JSON/JSONL opening
