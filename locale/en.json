@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Reunion · one-shot continue",
-    "description": "After install: paste a DeepSeek share link or export ZIP, say one line for reunion_continue (import+load, ~3.5k-char brief). For ordinary users; full sidebar bubbles need a session importer. Share URLs fetch public snapshots; local ZIPs stay offline. No telemetry.",
+    "description": "After install: paste a DeepSeek share link or export ZIP, say one line for reunion_continue (import+load). Default CORE + recent brief (~3.7k chars); recall details on demand. Full sidebar bubbles need a session importer. Share URLs fetch public snapshots; local ZIPs stay offline. No telemetry.",
     "detail": "docs/DETAIL.md"
   }
 }

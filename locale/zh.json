@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "重逢 · 一句话接着聊",
-    "description": "装完就能用：粘贴 DeepSeek 分享链接或导出 zip，一句话 reunion_continue（导入+装载，约 3.5k 字续写包）。面向普通用户/小红书；完整气泡请用 Session 导入。分享会拉公开快照；本地 zip 不上网。无遥测。",
+    "description": "装完就能用：粘贴 DeepSeek 分享链接或导出 zip，一句话 reunion_continue（导入+装载）。默认核心记忆 + 近期续写（约 3.7k 字），细节可按需回查。完整气泡请用 Session 导入。分享会拉公开快照；本地 zip 不上网。无遥测。",
     "detail": "docs/DETAIL.zh.md"
   }
 }

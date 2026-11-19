@@ -1,4 +1,4 @@
-/** Lock XHS/ordinary-user quickstart copy so the golden path stays discoverable. */
+/** Lock share-first continue quickstart copy so the golden path stays discoverable. */
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'

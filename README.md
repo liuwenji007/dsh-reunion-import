@@ -4,7 +4,7 @@
 **ZIP** into dsh-go and keep chatting in one line. Default path injects **CORE +
 THREAD** (~**3.7k characters**)—remember what matters, not the full transcript every turn.
 
-Chinese quickstart (XHS / ordinary users): **[docs/QUICKSTART.zh.md](docs/QUICKSTART.zh.md)**.
+Chinese quickstart (share-first continue): **[docs/QUICKSTART.zh.md](docs/QUICKSTART.zh.md)**.
 
 ## Ready after install (3 steps)
 

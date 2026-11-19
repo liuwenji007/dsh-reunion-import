@@ -2,7 +2,7 @@
 
 **装完就能用。** 把 DeepSeek **分享链接**（推荐）或导出 **zip** 贴进 dsh-go，一句话接着聊——默认注入 **核心记忆 + 近期续写**（合计约 **3.7k 字**），像人一样有重点地记，不把全文反复灌进上下文。
 
-最短步骤（小红书 / 普通用户）见 **[docs/QUICKSTART.zh.md](docs/QUICKSTART.zh.md)**。
+最短步骤见 **[docs/QUICKSTART.zh.md](docs/QUICKSTART.zh.md)**（分享优先 · zip 备选）。
 
 ## 装完就能用（3 步）
 

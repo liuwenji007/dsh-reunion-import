@@ -474,7 +474,7 @@ export function apply(ctx, rawConfig) {
 
   register({
     name: 'reunion_continue',
-    description: 'ONE-SHOT keep-chatting for ordinary/XHS users. Prefer this when they say 用重逢接着聊 / 接着聊这条分享 / 接着聊这个导出 / continue this share. Imports as thread (CORE+THREAD ~3.7k chars) and loads into this session in one call—do NOT split into reunion_import+reunion_load. path = share URL/id or export ZIP/dir. Multi-conversation ZIP requires session id (from reunion_inspect) or ask which one. Share URLs fetch chat.deepseek.com. Not a full-bubble session importer.',
+    description: 'ONE-SHOT keep-chatting after install. Prefer this when they say 用重逢接着聊 / 接着聊这条分享 / 接着聊这个导出 / continue this share. Imports as thread (CORE+THREAD ~3.7k chars) and loads into this session in one call—do NOT split into reunion_import+reunion_load. path = share URL/id or export ZIP/dir. Multi-conversation ZIP requires session id (from reunion_inspect) or ask which one. Share URLs fetch chat.deepseek.com. Not a full-bubble session importer.',
     parameters: {
       type: 'object',
       properties: {
